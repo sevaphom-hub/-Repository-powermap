@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Street-Static PowerMap AI</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* HEADER */
+    #header {
+      background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+      padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      z-index: 1000; flex-shrink: 0;
+    }
+    #header h1 { font-size: 16px; font-weight: 700; color: #e94560; letter-spacing: 1px; }
+    #header h1 span { color: #0f3460; background: #e94560; padding: 2px 6px; border-radius: 4px; margin-right: 6px; }
+    .header-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn {
+      padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer;
+      font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px;
+      transition: all 0.2s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .btn-primary { background: #e94560; color: #fff; }
+    .btn-success { background: #00b894; color: #fff; }
+    .btn-info    { background: #0984e3; color: #fff; }
+    .btn-warning { background: #fdcb6e; color: #333; }
+    .btn-secondary { background: #636e72; color: #fff; }
+
+    /* MAIN LAYOUT */
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    /* SIDEBAR */
+    #sidebar {
+      width: 280px; background: #16213e; padding: 14px;
+      overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.4); z-index: 500;
+      transition: width 0.3s;
+    }
+    #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; }
+
+    .panel-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      color: #74b9ff; letter-spacing: 1.5px; margin-bottom: 8px;
+    }
+
+    /* LAYER TOGGLES */
+    .layer-card {
+      background: #0f3460; border-radius: 10px; padding: 12px;
+      border: 2px solid transparent; cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .layer-card.active { border-color: #e94560; }
+    .layer-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .layer-info { flex: 1; }
+    .layer-info strong { font-size: 13px; display: block; }
+    .layer-info small { color: #aaa; font-size: 11px; }
+    .layer-count { background: #e94560; color: #fff; border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+
+    /* SEARCH */
+    #searchBox {
+      width: 100%; padding: 8px 12px; background: #0f3460; border: 1px solid #334; border-radius: 8px;
+      color: #eee; font-size: 13px; outline: none;
+    }
+    #searchBox:focus { border-color: #e94560; }
+
+    /* STATS */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box { background: #0f3460; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-box .num { font-size: 22px; font-weight: 700; color: #e94560; }
+    .stat-box .label { font-size: 10px; color: #aaa; }
+
+    /* MAP */
+    #map { flex: 1; z-index: 1; }
+
+    /* DATA TABLE PANEL */
+    #tablePanel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 0; background: #16213e;
+      transition: height 0.3s; z-index: 600;
+      display: flex; flex-direction: column;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+    #tablePanel.open { height: 45vh; }
+    #tablePanelHeader {
+      padding: 10px 16px; background: #0f3460;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; flex-shrink: 0;
+    }
+    #tablePanelHeader span { font-weight: 600; font-size: 13px; }
+    #tableWrapper { overflow: auto; flex: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #0f3460; color: #74b9ff; padding: 8px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; }
+    td { padding: 7px 10px; border-bottom: 1px solid #1e2d50; white-space: nowrap; }
+    tr:hover td { background: #1e2d50; }
+    .act-btn { background: none; border: none; cursor: pointer; padding: 3px 6px; border-radius: 4px; font-size: 12px; }
+    .act-edit { color: #74b9ff; } .act-edit:hover { background: #74b9ff22; }
+    .act-del  { color: #e94560; } .act-del:hover  { background: #e9456022; }
+
+    /* FAB */
+    #fab {
+      position: fixed; bottom: 80px; right: 20px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: #e94560; border: none; cursor: pointer;
+      font-size: 22px; color: #fff; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 20px rgba(233,69,96,0.5); z-index: 700;
+      transition: all 0.2s;
+    }
+    #fab:hover { transform: scale(1.1); }
+
+    /* MODAL */
+    #modalOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #modalOverlay.open { display: flex; }
+    #modal {
+      background: #16213e; border-radius: 16px; padding: 24px;
+      width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    #modal h2 { font-size: 16px; margin-bottom: 18px; color: #e94560; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 11px; color: #74b9ff; font-weight: 600; text-transform: uppercase; }
+    .form-group input, .form-group select {
+      background: #0f3460; border: 1px solid #334; border-radius: 8px;
+      padding: 8px 12px; color: #eee; font-size: 13px; outline: none;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #e94560; }
+    .section-divider {
+      grid-column: 1 / -1; margin: 8px 0 4px;
+      font-size: 11px; font-weight: 700; color: #74b9ff;
+      text-transform: uppercase; letter-spacing: 1px;
+      border-bottom: 1px solid #334; padding-bottom: 4px;
+    }
+    .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+    /* TOGGLE SIDEBAR BTN */
+    #toggleSidebar {
+      position: fixed; top: 58px; left: 10px;
+      z-index: 800; background: #e94560; border: none;
+      width: 32px; height: 32px; border-radius: 50%;
+      color: #fff; cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* POPUP CUSTOM */
+    .leaflet-popup-content-wrapper { background: #16213e; color: #eee; border: 1px solid #334; border-radius: 10px; }
+    .leaflet-popup-tip { background: #16213e; }
+    .popup-title { font-weight: 700; font-size: 14px; color: #e94560; margin-bottom: 6px; }
+    .popup-row { font-size: 12px; margin: 3px 0; }
+    .popup-row span { color: #74b9ff; font-weight: 600; }
+    .popup-edit-btn {
+      margin-top: 8px; width: 100%; padding: 6px; background: #e94560;
+      border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 12px;
+    }
+
+    /* MOBILE */
+    @media (max-width: 640px) {
+      #sidebar { width: 100%; position: fixed; top: 55px; bottom: 0; z-index: 900; display: none; }
+      #sidebar.mobile-open { display: flex; }
+      #header h1 { font-size: 13px; }
+      .form-grid { grid-template-columns: 1fr; }
+      #tablePanel.open { height: 55vh; }
+    }
+
+    /* LOADING */
+    #loading {
+      position: fixed; inset: 0; background: #1a1a2e;
+      z-index: 9999; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+    }
+    #loading.hidden { display: none; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #334; border-top-color: #e94560; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #74b9ff; font-size: 14px; }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: #00b894; color: #fff; padding: 10px 20px; border-radius: 30px;
+      font-size: 13px; z-index: 5000; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+    #toast.error { background: #e94560; }
+  </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>กำลังโหลดข้อมูล...</p>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- HEADER -->
+<div id="header">
+  <h1><span>MAP</span> Street-Static PowerMap AI</h1>
+  <div class="header-btns">
+    <button class="btn btn-success" onclick="openAddModal()"><i class="fa fa-plus"></i> เพิ่มข้อมูล</button>
+    <button class="btn btn-info" onclick="exportCSV()"><i class="fa fa-download"></i> ดาวน์โหลด</button>
+    <label class="btn btn-warning" style="cursor:pointer"><i class="fa fa-upload"></i> อัพโหลด<input type="file" id="csvUpload" accept=".csv" style="display:none" onchange="importCSV(event)"></label>
+    <button class="btn btn-secondary" onclick="reloadFromSheet()"><i class="fa fa-sync"></i> รีโหลด</button>
+    <button class="btn btn-secondary" onclick="toggleTablePanel()"><i class="fa fa-table"></i> ตาราง</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div>
+      <div class="panel-title"><i class="fa fa-layer-group"></i> เลเยอร์แผนที่</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="layer-card active" id="lcard1" onclick="toggleLayer(1)">
+          <div class="layer-dot" style="background:#3498db"></div>
+          <div class="layer-info">
+            <strong>เลเยอร์ 1 - ป้าย</strong>
+            <small>Code ID / ตำแหน่งป้าย</small>
+          </div>
+          <span class="layer-count" id="cnt1">0</span>
+        </div>
+        <div class="layer-card active" id="lcard2" onclick="toggleLayer(2)">
+          <div class="layer-dot" style="background:#e67e22"></div>
+          <div class="layer-info">
+            <strong>เลเยอร์ 2 - ไฟฟ้า</strong>
+            <small>รูปแบบไฟฟ้า</small>
+          </div>
+          <span class="layer-count" id="cnt2">0</span>
+        </div>
+        <div class="layer-card active" id="lcard3" onclick="toggleLayer(3)">
+          <div class="layer-dot" style="background:#27ae60"></div>
+          <div class="layer-info">
+            <strong>เลเยอร์ 3 - มิเตอร์</strong>
+            <small>เลขมิเตอร์</small>
+          </div>
+          <span class="layer-count" id="cnt3">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title"><i class="fa fa-search"></i> ค้นหา</div>
+      <input id="searchBox" type="text" placeholder="ค้นหา ID, ถนน, เขต..." oninput="onSearch(this.value)" />
+    </div>
+
+    <div>
+      <div class="panel-title"><i class="fa fa-chart-bar"></i> สรุปข้อมูล</div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="num" id="statTotal">0</div><div class="label">ป้ายทั้งหมด</div></div>
+        <div class="stat-box"><div class="num" id="statDistricts">0</div><div class="label">เขต</div></div>
+        <div class="stat-box"><div class="num" id="statRoads">0</div><div class="label">ถนน</div></div>
+        <div class="stat-box"><div class="num" id="statMeters">0</div><div class="label">มิเตอร์</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-title"><i class="fa fa-filter"></i> กรองเขต</div>
+      <select id="districtFilter" onchange="applyFilters()" style="width:100%;padding:8px;background:#0f3460;border:1px solid #334;border-radius:8px;color:#eee;font-size:13px;outline:none;">
+        <option value="">-- ทุกเขต --</option>
+      </select>
+    </div>
+
+    <div>
+      <div class="panel-title"><i class="fa fa-road"></i> กรองถนน</div>
+      <select id="roadFilter" onchange="applyFilters()" style="width:100%;padding:8px;background:#0f3460;border:1px solid #334;border-radius:8px;color:#eee;font-size:13px;outline:none;">
+        <option value="">-- ทุกถนน --</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map"></div>
+</div>
+
+<!-- Toggle Sidebar -->
+<button id="toggleSidebar" onclick="toggleSidebar()"><i class="fa fa-bars"></i></button>
+
+<!-- FAB Add -->
+<button id="fab" onclick="openAddModal()" title="เพิ่มข้อมูล"><i class="fa fa-plus"></i></button>
+
+<!-- TABLE PANEL -->
+<div id="tablePanel">
+  <div id="tablePanelHeader" onclick="toggleTablePanel()">
+    <span><i class="fa fa-table"></i> ตารางข้อมูลทั้งหมด</span>
+    <i class="fa fa-chevron-down" id="tableChevron"></i>
+  </div>
+  <div id="tableWrapper">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>No.</th><th>ID (ตามสัญญา)</th><th>Code</th><th>Location</th>
+          <th>ถนน</th><th>เขต</th><th>Lat1</th><th>Lng1</th>
+          <th>รูปแบบไฟฟ้า</th><th>Lat2</th><th>Lng2</th>
+          <th>เลขมิเตอร์</th><th>Lat3</th><th>Lng3</th>
+          <th>จัดการ</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div id="modal">
+    <h2 id="modalTitle"><i class="fa fa-plus-circle"></i> เพิ่มข้อมูลใหม่</h2>
+    <div class="form-grid">
+      <div class="section-divider">เลเยอร์ 1 — ตำแหน่งป้าย</div>
+      <div class="form-group"><label>No.</label><input id="f_no" type="text" placeholder="137" /></div>
+      <div class="form-group"><label>ID (ตามสัญญา)</label><input id="f_id" type="text" placeholder="P 1073/2" /></div>
+      <div class="form-group"><label>Code ID (New media)</label><input id="f_code" type="text" placeholder="DP174" /></div>
+      <div class="form-group full"><label>Location</label><input id="f_location" type="text" placeholder="รายละเอียดตำแหน่ง" /></div>
+      <div class="form-group"><label>ถนน (Road)</label><input id="f_road" type="text" placeholder="อโศก-ดินแดง" /></div>
+      <div class="form-group"><label>เขต (District)</label><input id="f_district" type="text" placeholder="ราชเทวี" /></div>
+      <div class="form-group"><label>Latitude</label><input id="f_lat1" type="number" step="any" placeholder="13.752215" /></div>
+      <div class="form-group"><label>Longitude</label><input id="f_lng1" type="number" step="any" placeholder="100.564031" /></div>
+
+      <div class="section-divider">เลเยอร์ 2 — รูปแบบไฟฟ้า</div>
+      <div class="form-group full"><label>รูปแบบไฟฟ้า</label><input id="f_elec" type="text" placeholder="พ่วงศาลา DS248" /></div>
+      <div class="form-group"><label>Latitude</label><input id="f_lat2" type="number" step="any" placeholder="13.7514421" /></div>
+      <div class="form-group"><label>Longitude</label><input id="f_lng2" type="number" step="any" placeholder="100.5638882" /></div>
+
+      <div class="section-divider">เลเยอร์ 3 — เลขมิเตอร์</div>
+      <div class="form-group full"><label>เลขมิเตอร์</label><input id="f_meter" type="text" placeholder="96924147" /></div>
+      <div class="form-group"><label>Latitude</label><input id="f_lat3" type="number" step="any" placeholder="13.7517162" /></div>
+      <div class="form-group"><label>Longitude</label><input id="f_lng3" type="number" step="any" placeholder="100.5639493" /></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()"><i class="fa fa-times"></i> ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveRecord()"><i class="fa fa-save"></i> บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+// ===== DATA =====
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1eEfHl4aUvY28k9WNlu5yECPMrrEGjZP7zvN86gmVANs/export?format=csv&gid=91209852';
+let allData = [];
+let editIdx = null;
+
+// Layer visibility state
+const layerVisible = { 1: true, 2: true, 3: true };
+
+// ===== MAP SETUP =====
+const map = L.map('map', { zoomControl: true }).setView([13.752, 100.564], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+
+// Layer groups
+const layerGroups = {
+  1: L.layerGroup().addTo(map),
+  2: L.layerGroup().addTo(map),
+  3: L.layerGroup().addTo(map)
+};
+
+// Custom icons
+function makeIcon(color, symbol) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;background:${color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+      <span style="transform:rotate(45deg);color:#fff;font-size:12px;font-family:FontAwesome;">${symbol}</span>
+    </div>`,
+    iconSize: [28, 28], iconAnchor: [14, 28], popupAnchor: [0, -30]
+  });
+}
+
+const icons = {
+  1: makeIcon('#3498db', '📍'),
+  2: makeIcon('#e67e22', '⚡'),
+  3: makeIcon('#27ae60', '🔢')
+};
+
+// ===== LOAD DATA =====
+function loadData(rows) {
+  allData = rows;
+  localStorage.setItem('pmdata', JSON.stringify(allData));
+  renderAll();
+  hideLoading();
+  showToast(`โหลดข้อมูล ${allData.length} รายการ สำเร็จ`);
+}
+
+function parseCSVRows(csvText) {
+  const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+  return result.data.map((r, i) => ({
+    id: Date.now() + i,
+    no: r['No.'] || r['No'] || '',
+    contractId: r['ID (ตามสัญญา)'] || '',
+    code: r['New media'] || '',
+    location: r['Location '] || r['Location'] || '',
+    road: r['Road'] || '',
+    district: r['District '] || r['District'] || '',
+    lat1: parseFloat(r['Latitude']) || null,
+    lng1: parseFloat(r['Longitude']) || null,
+    elec: r['รูปแบบไฟฟ้า'] || '',
+    lat2: parseFloat(r['Latitude_1'] || r['Latitude.1'] || Object.values(r)[9]) || null,
+    lng2: parseFloat(r['Longitude_1'] || r['Longitude.1'] || Object.values(r)[10]) || null,
+    meter: r['เลขมิเตอร์'] || '',
+    lat3: parseFloat(r['Latitude_2'] || r['Latitude.2'] || Object.values(r)[12]) || null,
+    lng3: parseFloat(r['Longitude_2'] || r['Longitude.2'] || Object.values(r)[13]) || null
+  }));
+}
+
+function fetchFromSheet() {
+  showLoading();
+  fetch(SHEET_CSV)
+    .then(r => r.text())
+    .then(text => {
+      const rows = parseCSVRowsRaw(text);
+      loadData(rows);
+    })
+    .catch(() => {
+      // fallback: use embedded data
+      loadData(getEmbeddedData());
+    });
+}
+
+function parseCSVRowsRaw(csvText) {
+  const lines = csvText.trim().split('\n');
+  const header = lines[0].split(',');
+  return lines.slice(1).map((line, i) => {
+    const cols = parseCSVLine(line);
+    return {
+      id: Date.now() + i,
+      no:         cols[0]  || '',
+      contractId: cols[1]  || '',
+      code:       cols[2]  || '',
+      location:   cols[3]  || '',
+      road:       cols[4]  || '',
+      district:   cols[5]  || '',
+      lat1:       parseFloatSafe(cols[6]),
+      lng1:       parseFloatSafe(cols[7]),
+      elec:       cols[8]  || '',
+      lat2:       parseFloatSafe(cols[9]),
+      lng2:       parseFloatSafe(cols[10]),
+      meter:      cols[11] || '',
+      lat3:       parseFloatSafe(cols[12]),
+      lng3:       parseFloatSafe(cols[13])
+    };
+  }).filter(r => r.no || r.contractId);
+}
+
+function parseCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQ = !inQ; continue; }
+    if (line[i] === ',' && !inQ) { result.push(cur.trim()); cur = ''; continue; }
+    cur += line[i];
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseFloatSafe(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+function getEmbeddedData() {
+  return [
+    { id:1, no:'137', contractId:'P 1073/2', code:'DP174', location:'ก่อนทางขึ้นทางด่วนรัชดา-ดินแดง (อโศก 3)', road:'อโศก-ดินแดง', district:'ราชเทวี', lat1:13.752215, lng1:100.564031, elec:'พ่วงศาลา DS248', lat2:13.7514421, lng2:100.5638882, meter:'96924147', lat3:13.7517162, lng3:100.5639493 },
+    { id:2, no:'257', contractId:'P 1138/2', code:'DP178', location:'ตรงข้าม Dermaster มุ่งหน้าแยกพระราม 9 (Outbound)', road:'อโศก-ดินแดง', district:'ราชเทวี', lat1:13.7513054, lng1:100.5638301, elec:'พ่วงศาลา DS248', lat2:13.7514421, lng2:100.5638882, meter:'96924147', lat3:13.7517162, lng3:100.5639493 },
+    { id:3, no:'312', contractId:'P 1171/1', code:'DP181', location:'ทางลง ด่านอโศก ถ.อโศก-ดินแดง มุ่งหน้ารัชดา', road:'อโศก-ดินแดง', district:'ห้วยขวาง', lat1:13.7534859, lng1:100.5643248, elec:'พ่วงศาลา DS249', lat2:13.7530746, lng2:100.56425, meter:'96939689', lat3:13.7531654, lng3:100.5642706 },
+    { id:4, no:'485', contractId:'P 1284/1', code:'DP1088', location:'ใต้ทางด่วน อโศก 3 มุ่งหน้า แยกพระราม 9 (Outbound)', road:'อโศก-ดินแดง', district:'ห้วยขวาง', lat1:13.7529829, lng1:100.5642296, elec:'พ่วงศาลา DS249', lat2:13.7530746, lng2:100.56425, meter:'96939689', lat3:13.7531654, lng3:100.5642706 },
+    { id:5, no:'562', contractId:'P 1336/2', code:'DP052', location:'ปากซอยบุญอยู่ หน้าสำนักงานขาย THE TREE DINDAENG-RATCHAPRAROP', road:'ดินแดง', district:'พญาไท', lat1:13.7636126, lng1:100.5456418, elec:'ขอมิเตอร์ใหม่', lat2:null, lng2:null, meter:'96895435', lat3:13.7636758, lng3:100.5458416 },
+    { id:6, no:'1003', contractId:'P 1604/2', code:'DP053', location:'หน้าอาคารประกันภัยไทยวิวัฒน์ (ซ.ร่วมมิตร)', road:'ดินแดง', district:'พญาไท', lat1:13.7640239, lng1:100.5470427, elec:'ขอมิเตอร์ใหม่', lat2:null, lng2:null, meter:'96895440', lat3:13.7640508, lng3:100.5471781 },
+    { id:7, no:'1026', contractId:'P 1617/1', code:'DP1095', location:'ตรงข้าม Mattress City มุ่งหน้า แยกพระราม 9 (Outbound)', road:'อโศก-ดินแดง', district:'ราชเทวี', lat1:13.7518979, lng1:100.5639898, elec:'พ่วงCokies DP174', lat2:13.752215, lng2:100.564031, meter:'96924147', lat3:13.7517162, lng3:100.5639493 },
+    { id:8, no:'1107', contractId:'P 1659/2', code:'DP1097', location:'ตรงข้าม ร.พ.ผิวหนัง อโศก', road:'อโศก-ดินแดง', district:'สาทร', lat1:13.7245301, lng1:100.5397545, elec:'พ่วงCokies DP178', lat2:13.7509875, lng2:100.563788, meter:'96937929', lat3:13.7517162, lng3:100.5639493 }
+  ];
+}
+
+// ===== RENDER =====
+function renderAll(filtered) {
+  const data = filtered || allData;
+  clearMarkers();
+  renderMarkers(data);
+  renderTable(data);
+  updateStats(data);
+  updateFilters();
+  updateCounts();
+}
+
+function clearMarkers() {
+  layerGroups[1].clearLayers();
+  layerGroups[2].clearLayers();
+  layerGroups[3].clearLayers();
+}
+
+function renderMarkers(data) {
+  data.forEach((r, i) => {
+    // Layer 1
+    if (r.lat1 && r.lng1) {
+      const m = L.marker([r.lat1, r.lng1], { icon: makeMarkerIcon('#3498db', r.code || r.no) })
+        .bindPopup(makePopup(r, 1));
+      m.on('popupopen', () => setupPopupBtn(r));
+      layerGroups[1].addLayer(m);
+    }
+    // Layer 2
+    if (r.lat2 && r.lng2) {
+      const m = L.marker([r.lat2, r.lng2], { icon: makeMarkerIcon('#e67e22', '⚡') })
+        .bindPopup(makePopup(r, 2));
+      m.on('popupopen', () => setupPopupBtn(r));
+      layerGroups[2].addLayer(m);
+    }
+    // Layer 3
+    if (r.lat3 && r.lng3) {
+      const m = L.marker([r.lat3, r.lng3], { icon: makeMarkerIcon('#27ae60', '🔢') })
+        .bindPopup(makePopup(r, 3));
+      m.on('popupopen', () => setupPopupBtn(r));
+      layerGroups[3].addLayer(m);
+    }
+  });
+}
+
+function makeMarkerIcon(color, label) {
+  const txt = String(label).substring(0, 5);
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:${color};border:2px solid rgba(255,255,255,0.8);border-radius:20px;padding:3px 7px;color:#fff;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);">${txt}</div>`,
+    iconAnchor: [20, 10], popupAnchor: [0, -14]
+  });
+}
+
+function makePopup(r, layer) {
+  const titles = { 1: 'ตำแหน่งป้าย', 2: 'รูปแบบไฟฟ้า', 3: 'มิเตอร์' };
+  return `<div>
+    <div class="popup-title">${titles[layer]}</div>
+    <div class="popup-row"><span>No.:</span> ${r.no}</div>
+    <div class="popup-row"><span>ID:</span> ${r.contractId}</div>
+    <div class="popup-row"><span>Code:</span> ${r.code}</div>
+    <div class="popup-row"><span>ถนน:</span> ${r.road}</div>
+    <div class="popup-row"><span>เขต:</span> ${r.district}</div>
+    <div class="popup-row"><span>ไฟฟ้า:</span> ${r.elec}</div>
+    <div class="popup-row"><span>มิเตอร์:</span> ${r.meter}</div>
+    <button class="popup-edit-btn" data-rid="${r.id}"><i class="fa fa-edit"></i> แก้ไข</button>
+  </div>`;
+}
+
+function setupPopupBtn(r) {
+  setTimeout(() => {
+    document.querySelectorAll(`.popup-edit-btn[data-rid="${r.id}"]`).forEach(btn => {
+      btn.onclick = () => openEditModal(r.id);
+    });
+  }, 50);
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td>${r.no}</td>
+      <td>${r.contractId}</td>
+      <td>${r.code}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.location}</td>
+      <td>${r.road}</td>
+      <td>${r.district}</td>
+      <td>${r.lat1 || '-'}</td>
+      <td>${r.lng1 || '-'}</td>
+      <td>${r.elec}</td>
+      <td>${r.lat2 || '-'}</td>
+      <td>${r.lng2 || '-'}</td>
+      <td>${r.meter}</td>
+      <td>${r.lat3 || '-'}</td>
+      <td>${r.lng3 || '-'}</td>
+      <td>
+        <button class="act-btn act-edit" onclick="openEditModal(${r.id})" title="แก้ไข"><i class="fa fa-edit"></i></button>
+        <button class="act-btn act-del" onclick="deleteRecord(${r.id})" title="ลบ"><i class="fa fa-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function updateStats(data) {
+  document.getElementById('statTotal').textContent = data.length;
+  document.getElementById('statDistricts').textContent = new Set(data.map(r => r.district).filter(Boolean)).size;
+  document.getElementById('statRoads').textContent = new Set(data.map(r => r.road).filter(Boolean)).size;
+  document.getElementById('statMeters').textContent = new Set(data.map(r => r.meter).filter(Boolean)).size;
+}
+
+function updateFilters() {
+  const distSel = document.getElementById('districtFilter');
+  const roadSel = document.getElementById('roadFilter');
+  const curDist = distSel.value; const curRoad = roadSel.value;
+  const dists = [...new Set(allData.map(r => r.district).filter(Boolean))].sort();
+  const roads = [...new Set(allData.map(r => r.road).filter(Boolean))].sort();
+  distSel.innerHTML = '<option value="">-- ทุกเขต --</option>' + dists.map(d => `<option value="${d}" ${d===curDist?'selected':''}>${d}</option>`).join('');
+  roadSel.innerHTML = '<option value="">-- ทุกถนน --</option>' + roads.map(r => `<option value="${r}" ${r===curRoad?'selected':''}>${r}</option>`).join('');
+}
+
+function updateCounts() {
+  document.getElementById('cnt1').textContent = allData.filter(r => r.lat1 && r.lng1).length;
+  document.getElementById('cnt2').textContent = allData.filter(r => r.lat2 && r.lng2).length;
+  document.getElementById('cnt3').textContent = allData.filter(r => r.lat3 && r.lng3).length;
+}
+
+// ===== LAYER TOGGLE =====
+function toggleLayer(n) {
+  layerVisible[n] = !layerVisible[n];
+  if (layerVisible[n]) { map.addLayer(layerGroups[n]); }
+  else { map.removeLayer(layerGroups[n]); }
+  document.getElementById(`lcard${n}`).classList.toggle('active', layerVisible[n]);
+}
+
+// ===== SEARCH & FILTER =====
+function onSearch(q) {
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const dist = document.getElementById('districtFilter').value;
+  const road = document.getElementById('roadFilter').value;
+  const filtered = allData.filter(r =>
+    (!q || [r.no, r.contractId, r.code, r.location, r.road, r.district, r.meter, r.elec].join(' ').toLowerCase().includes(q)) &&
+    (!dist || r.district === dist) &&
+    (!road || r.road === road)
+  );
+  renderAll(filtered);
+}
+
+// ===== CRUD =====
+function openAddModal() {
+  editIdx = null;
+  document.getElementById('modalTitle').innerHTML = '<i class="fa fa-plus-circle"></i> เพิ่มข้อมูลใหม่';
+  ['f_no','f_id','f_code','f_location','f_road','f_district','f_lat1','f_lng1','f_elec','f_lat2','f_lng2','f_meter','f_lat3','f_lng3'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function openEditModal(id) {
+  const r = allData.find(x => x.id === id);
+  if (!r) return;
+  editIdx = id;
+  document.getElementById('modalTitle').innerHTML = '<i class="fa fa-edit"></i> แก้ไขข้อมูล';
+  document.getElementById('f_no').value = r.no;
+  document.getElementById('f_id').value = r.contractId;
+  document.getElementById('f_code').value = r.code;
+  document.getElementById('f_location').value = r.location;
+  document.getElementById('f_road').value = r.road;
+  document.getElementById('f_district').value = r.district;
+  document.getElementById('f_lat1').value = r.lat1 || '';
+  document.getElementById('f_lng1').value = r.lng1 || '';
+  document.getElementById('f_elec').value = r.elec;
+  document.getElementById('f_lat2').value = r.lat2 || '';
+  document.getElementById('f_lng2').value = r.lng2 || '';
+  document.getElementById('f_meter').value = r.meter;
+  document.getElementById('f_lat3').value = r.lat3 || '';
+  document.getElementById('f_lng3').value = r.lng3 || '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function saveRecord() {
+  const rec = {
+    id: editIdx || Date.now(),
+    no: document.getElementById('f_no').value.trim(),
+    contractId: document.getElementById('f_id').value.trim(),
+    code: document.getElementById('f_code').value.trim(),
+    location: document.getElementById('f_location').value.trim(),
+    road: document.getElementById('f_road').value.trim(),
+    district: document.getElementById('f_district').value.trim(),
+    lat1: parseFloatSafe(document.getElementById('f_lat1').value),
+    lng1: parseFloatSafe(document.getElementById('f_lng1').value),
+    elec: document.getElementById('f_elec').value.trim(),
+    lat2: parseFloatSafe(document.getElementById('f_lat2').value),
+    lng2: parseFloatSafe(document.getElementById('f_lng2').value),
+    meter: document.getElementById('f_meter').value.trim(),
+    lat3: parseFloatSafe(document.getElementById('f_lat3').value),
+    lng3: parseFloatSafe(document.getElementById('f_lng3').value)
+  };
+  if (editIdx) {
+    const idx = allData.findIndex(x => x.id === editIdx);
+    if (idx !== -1) allData[idx] = rec;
+    showToast('แก้ไขข้อมูลสำเร็จ');
+  } else {
+    allData.push(rec);
+    showToast('เพิ่มข้อมูลสำเร็จ');
+  }
+  localStorage.setItem('pmdata', JSON.stringify(allData));
+  closeModal();
+  renderAll();
+}
+
+function deleteRecord(id) {
+  if (!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
+  allData = allData.filter(x => x.id !== id);
+  localStorage.setItem('pmdata', JSON.stringify(allData));
+  renderAll();
+  showToast('ลบข้อมูลสำเร็จ');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalOnBg(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+// ===== IMPORT / EXPORT =====
+function exportCSV() {
+  const headers = ['No.','ID (ตามสัญญา)','New media','Location','Road','District','Latitude','Longitude','รูปแบบไฟฟ้า','Latitude','Longitude','เลขมิเตอร์','Latitude','Longitude'];
+  const rows = allData.map(r => [r.no, r.contractId, r.code, r.location, r.road, r.district, r.lat1||'', r.lng1||'', r.elec, r.lat2||'', r.lng2||'', r.meter, r.lat3||'', r.lng3||'']);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `PowerMap_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('ดาวน์โหลด CSV สำเร็จ');
+}
+
+function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const text = evt.target.result;
+    const rows = parseCSVRowsRaw(text);
+    if (rows.length === 0) { showToast('ไม่พบข้อมูลในไฟล์', true); return; }
+    if (confirm(`พบข้อมูล ${rows.length} รายการ ต้องการ:\nOK = เพิ่มเข้าข้อมูลเดิม\nCancel = แทนที่ข้อมูลทั้งหมด`)) {
+      allData = [...allData, ...rows];
+    } else {
+      allData = rows;
+    }
+    localStorage.setItem('pmdata', JSON.stringify(allData));
+    renderAll();
+    showToast(`นำเข้าข้อมูล ${rows.length} รายการ สำเร็จ`);
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+function reloadFromSheet() {
+  if (confirm('รีโหลดข้อมูลจาก Google Sheet?\n(ข้อมูลที่แก้ไขในเครื่องจะถูกแทนที่)')) {
+    fetchFromSheet();
+  }
+}
+
+// ===== UI HELPERS =====
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  if (window.innerWidth <= 640) {
+    s.classList.toggle('mobile-open');
+  } else {
+    s.classList.toggle('collapsed');
+  }
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function toggleTablePanel() {
+  const p = document.getElementById('tablePanel');
+  const ch = document.getElementById('tableChevron');
+  p.classList.toggle('open');
+  ch.className = p.classList.contains('open') ? 'fa fa-chevron-up' : 'fa fa-chevron-down';
+  setTimeout(() => map.invalidateSize(), 350);
+}
+
+function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => { t.className = isError ? 'error' : ''; }, 3000);
+}
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('pmdata');
+  if (saved) {
+    try {
+      allData = JSON.parse(saved);
+      renderAll();
+      hideLoading();
+      showToast(`โหลดข้อมูลจาก Cache ${allData.length} รายการ`);
+    } catch(e) {
+      fetchFromSheet();
+    }
+  } else {
+    fetchFromSheet();
+  }
+});
+</script>
+</body>
+</html>
