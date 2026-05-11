@@ -524,7 +524,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ══════════ DATA ══════════
-const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1eEfHl4aUvY28k9WNlu5yECPMrrEGjZP7zvN86gmVANs/export?format=csv&gid=91209852';
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-7-byqfBNqSu1gsp2Far56CRAU3k8HVAi05QvoGASu0/export?format=csv&gid=1029807904';
+const DATA_VER  = '2025-05-11-v2'; // bump to force cache refresh
 let allData = [];
 let editIdx = null;
 const layerVis = {1:true,2:true,3:true};
@@ -543,6 +544,7 @@ function mkIcon(color,label){
 function loadData(rows){
   allData=rows;
   localStorage.setItem('pmdata',JSON.stringify(allData));
+  localStorage.setItem('pmver',DATA_VER);
   renderAll();
   hideLoading();
   showToast(`โหลดข้อมูล ${allData.length} รายการ`);
@@ -562,6 +564,10 @@ function parseRaw(csv){
     return{id:Date.now()+i,no:c[0]||'',contractId:c[1]||'',code:c[2]||'',location:c[3]||'',road:c[4]||'',district:c[5]||'',
       lat1:pf(c[6]),lng1:pf(c[7]),elec:c[8]||'',lat2:pf(c[9]),lng2:pf(c[10]),meter:c[11]||'',lat3:pf(c[12]),lng3:pf(c[13])};
   }).filter(r=>r.no||r.contractId);
+}
+
+function isStale(){
+  return localStorage.getItem('pmver') !== DATA_VER;
 }
 
 function parseCSVLine(line){
@@ -584,7 +590,7 @@ function embedded(){
     {id:5,no:'562',contractId:'P 1336/2',code:'DP052',location:'ปากซอยบุญอยู่ หน้าสำนักงานขาย THE TREE DINDAENG',road:'ดินแดง',district:'พญาไท',lat1:13.7636126,lng1:100.5456418,elec:'ขอมิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895435',lat3:13.7636758,lng3:100.5458416},
     {id:6,no:'1003',contractId:'P 1604/2',code:'DP053',location:'หน้าอาคารประกันภัยไทยวิวัฒน์ (ซ.ร่วมมิตร)',road:'ดินแดง',district:'พญาไท',lat1:13.7640239,lng1:100.5470427,elec:'ขอมิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895440',lat3:13.7640508,lng3:100.5471781},
     {id:7,no:'1026',contractId:'P 1617/1',code:'DP1095',location:'ตรงข้าม Mattress City มุ่งหน้า แยกพระราม 9',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7518979,lng1:100.5639898,elec:'พ่วงCokies DP174',lat2:13.752215,lng2:100.564031,meter:'96924147',lat3:13.7517162,lng3:100.5639493},
-    {id:8,no:'1107',contractId:'P 1659/2',code:'DP1097',location:'ตรงข้าม ร.พ.ผิวหนัง อโศก',road:'อโศก-ดินแดง',district:'สาทร',lat1:13.7245301,lng1:100.5397545,elec:'พ่วงCokies DP178',lat2:13.7509875,lng2:100.563788,meter:'96937929',lat3:13.7517162,lng3:100.5639493}
+    {id:8,no:'1107',contractId:'P 1659/2',code:'DP1097',location:'ตรงข้าม ร.พ.ผิวหนัง อโศก',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7509875,lng1:100.563788,elec:'พ่วงCokies DP178',lat2:13.7509875,lng2:100.563788,meter:'96937929',lat3:13.7517162,lng3:100.5639493}
   ];
 }
 
@@ -1155,8 +1161,15 @@ function updateMobileCounts() {
 
 // ══════════ INIT ══════════
 window.addEventListener('load',()=>{
+  if(isStale()){
+    // version changed → clear old cache and fetch fresh
+    localStorage.removeItem('pmdata');
+    localStorage.removeItem('pmver');
+    fetchFromSheet();
+    return;
+  }
   const saved=localStorage.getItem('pmdata');
-  if(saved){try{allData=JSON.parse(saved);renderAll();hideLoading();showToast(`Cache ${allData.length} รายการ`);}catch(e){fetchFromSheet();}}
+  if(saved){try{allData=JSON.parse(saved);renderAll();hideLoading();showToast(`โหลดข้อมูล ${allData.length} รายการ`);}catch(e){fetchFromSheet();}}
   else fetchFromSheet();
 });
 </script>
