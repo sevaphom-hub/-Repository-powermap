@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Street-Static PowerMap AI</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -143,6 +144,15 @@
     }
     .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 
+    /* ROUTE PANEL */
+    .route-sel { width:100%; padding:8px 10px; background:#0f3460; border:1px solid #334; border-radius:8px; color:#eee; font-size:12px; outline:none; margin-top:6px; }
+    .route-sel:focus { border-color:#e94560; }
+    .route-label { font-size:10px; color:#74b9ff; font-weight:700; text-transform:uppercase; margin-top:8px; display:block; }
+    #routeResult { display:none; margin-top:10px; background:#0f3460; border-radius:8px; padding:10px; border-left:3px solid #e94560; }
+    .route-info { font-size:13px; margin:4px 0; }
+    .route-info i { width:16px; color:#e94560; }
+    .leaflet-routing-container { display:none !important; }
+
     /* TOGGLE SIDEBAR BTN */
     #toggleSidebar {
       position: fixed; top: 58px; left: 10px;
@@ -267,6 +277,37 @@
       </div>
     </div>
 
+    <!-- ROUTING PANEL -->
+    <div>
+      <div class="panel-title"><i class="fa fa-route"></i> เส้นทางการเดินทาง</div>
+      <span class="route-label">จุดเริ่มต้น (เลเยอร์ 1 - ป้าย)</span>
+      <select id="routeFrom" class="route-sel">
+        <option value="">-- เลือกป้าย --</option>
+      </select>
+      <span class="route-label">ปลายทาง</span>
+      <select id="routeToLayer" class="route-sel" onchange="updateRouteToDropdown()">
+        <option value="2">เลเยอร์ 2 — รูปแบบไฟฟ้า</option>
+        <option value="3">เลเยอร์ 3 — เลขมิเตอร์</option>
+      </select>
+      <span class="route-label">เลือกจุดหมาย</span>
+      <select id="routeTo" class="route-sel">
+        <option value="">-- เลือกจุดหมาย --</option>
+      </select>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px;justify-content:center" onclick="calcRoute()">
+        <i class="fa fa-route"></i> คำนวณเส้นทาง
+      </button>
+      <button class="btn btn-secondary" style="width:100%;margin-top:6px;justify-content:center" onclick="clearRoute()">
+        <i class="fa fa-times"></i> ล้างเส้นทาง
+      </button>
+      <div id="routeResult">
+        <div style="font-size:11px;color:#74b9ff;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">ผลการคำนวณ</div>
+        <div id="routeFrom_info" class="route-info"></div>
+        <div id="routeTo_info" class="route-info"></div>
+        <div id="routeDistance" class="route-info"></div>
+        <div id="routeTime" class="route-info"></div>
+      </div>
+    </div>
+
     <div>
       <div class="panel-title"><i class="fa fa-filter"></i> กรองเขต</div>
       <select id="districtFilter" onchange="applyFilters()" style="width:100%;padding:8px;background:#0f3460;border:1px solid #334;border-radius:8px;color:#eee;font-size:13px;outline:none;">
@@ -347,6 +388,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // ===== DATA =====
@@ -494,6 +536,7 @@ function renderAll(filtered) {
   updateStats(data);
   updateFilters();
   updateCounts();
+  updateRouteDropdowns();
 }
 
 function clearMarkers() {
@@ -774,6 +817,88 @@ function showToast(msg, isError = false) {
   t.textContent = msg;
   t.className = 'show' + (isError ? ' error' : '');
   setTimeout(() => { t.className = isError ? 'error' : ''; }, 3000);
+}
+
+// ===== ROUTING =====
+let routingControl = null;
+
+function updateRouteDropdowns() {
+  const fromSel = document.getElementById('routeFrom');
+  const saved = fromSel.value;
+  fromSel.innerHTML = '<option value="">-- เลือกป้าย --</option>' +
+    allData.filter(r => r.lat1 && r.lng1).map(r =>
+      `<option value="${r.id}">${r.code} · ${r.location.substring(0,28)}</option>`
+    ).join('');
+  if (saved) fromSel.value = saved;
+  updateRouteToDropdown();
+}
+
+function updateRouteToDropdown() {
+  const layer = document.getElementById('routeToLayer').value;
+  const toSel = document.getElementById('routeTo');
+  const saved = toSel.value;
+  if (layer === '2') {
+    toSel.innerHTML = '<option value="">-- เลือกจุดหมาย --</option>' +
+      allData.filter(r => r.lat2 && r.lng2).map(r =>
+        `<option value="${r.id}">${r.elec} (${r.code})</option>`
+      ).join('');
+  } else {
+    toSel.innerHTML = '<option value="">-- เลือกจุดหมาย --</option>' +
+      allData.filter(r => r.lat3 && r.lng3).map(r =>
+        `<option value="${r.id}">${r.meter} (${r.code})</option>`
+      ).join('');
+  }
+  if (saved) toSel.value = saved;
+}
+
+function calcRoute() {
+  const fromId = parseInt(document.getElementById('routeFrom').value);
+  const toId   = parseInt(document.getElementById('routeTo').value);
+  const layer  = document.getElementById('routeToLayer').value;
+  if (!fromId || !toId) { showToast('กรุณาเลือกจุดเริ่มต้นและปลายทาง', true); return; }
+
+  const fr = allData.find(r => r.id === fromId);
+  const to = allData.find(r => r.id === toId);
+  if (!fr || !to) return;
+
+  const toLat = layer === '2' ? to.lat2 : to.lat3;
+  const toLng = layer === '2' ? to.lng2 : to.lng3;
+  const toLabel = layer === '2' ? to.elec : `มิเตอร์ ${to.meter}`;
+
+  clearRoute();
+
+  routingControl = L.Routing.control({
+    waypoints: [ L.latLng(fr.lat1, fr.lng1), L.latLng(toLat, toLng) ],
+    router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'driving' }),
+    lineOptions: { styles: [{ color: '#e94560', weight: 5, opacity: 0.85 }] },
+    showAlternatives: false,
+    addWaypoints: false,
+    draggableWaypoints: false,
+    fitSelectedRoutes: true,
+    show: false,
+    createMarker: () => null
+  }).addTo(map);
+
+  routingControl.on('routesfound', e => {
+    const s = e.routes[0].summary;
+    const dist = (s.totalDistance / 1000).toFixed(2);
+    const mins = Math.round(s.totalTime / 60);
+    document.getElementById('routeFrom_info').innerHTML = `<i class="fa fa-map-marker-alt"></i> จาก: <strong>${fr.code}</strong>`;
+    document.getElementById('routeTo_info').innerHTML   = `<i class="fa fa-flag-checkered"></i> ถึง: <strong>${toLabel}</strong>`;
+    document.getElementById('routeDistance').innerHTML  = `<i class="fa fa-road"></i> ระยะทาง: <strong>${dist} กม.</strong>`;
+    document.getElementById('routeTime').innerHTML      = `<i class="fa fa-clock"></i> เวลาโดยประมาณ: <strong>${mins} นาที</strong>`;
+    document.getElementById('routeResult').style.display = 'block';
+    showToast(`เส้นทาง ${dist} กม. · ${mins} นาที`);
+  });
+
+  routingControl.on('routingerror', () => {
+    showToast('ไม่สามารถคำนวณเส้นทางได้ กรุณาลองใหม่', true);
+  });
+}
+
+function clearRoute() {
+  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+  document.getElementById('routeResult').style.display = 'none';
 }
 
 // ===== INIT =====
