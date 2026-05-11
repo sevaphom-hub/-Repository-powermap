@@ -153,6 +153,53 @@
     .route-info i { width:16px; color:#e94560; }
     .leaflet-routing-container { display:none !important; }
 
+    /* NAVIGATION PANEL */
+    #navPanel {
+      position:fixed; bottom:0; left:0; right:0; z-index:800;
+      background:#0d1b2a; border-top:2px solid #e94560;
+      transform:translateY(100%); transition:transform 0.35s ease;
+      max-height:55vh; display:flex; flex-direction:column;
+    }
+    #navPanel.open { transform:translateY(0); }
+    #navHeader {
+      background:#e94560; padding:10px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-shrink:0; cursor:pointer;
+    }
+    #navHeader .nav-summary { display:flex; gap:20px; align-items:center; }
+    #navHeader .nav-summary span { font-size:13px; font-weight:700; color:#fff; }
+    #navHeader .nav-summary small { font-size:11px; color:#ffcdd2; }
+    #navCloseBtn { background:none; border:none; color:#fff; font-size:18px; cursor:pointer; padding:0 4px; }
+    #navStepsWrapper { overflow-y:auto; flex:1; }
+    .nav-step {
+      display:flex; align-items:flex-start; gap:12px;
+      padding:10px 16px; border-bottom:1px solid #1e2d50;
+      transition:background 0.15s;
+    }
+    .nav-step:hover { background:#1e2d50; }
+    .nav-step.active { background:#1e3a5f; border-left:3px solid #e94560; }
+    .step-icon {
+      width:36px; height:36px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:16px; background:#16213e; border:2px solid #334;
+    }
+    .step-icon.start { background:#00b894; border-color:#00b894; color:#fff; }
+    .step-icon.end   { background:#e94560; border-color:#e94560; color:#fff; }
+    .step-icon.turn  { background:#0f3460; border-color:#74b9ff; color:#74b9ff; }
+    .step-body { flex:1; }
+    .step-body .step-text { font-size:13px; font-weight:600; color:#eee; }
+    .step-body .step-dist { font-size:11px; color:#aaa; margin-top:3px; }
+    #navToggleBtn {
+      position:fixed; bottom:16px; right:72px; z-index:801;
+      background:#0984e3; border:none; border-radius:30px;
+      color:#fff; padding:10px 16px; font-size:12px; font-weight:700;
+      cursor:pointer; box-shadow:0 4px 16px rgba(9,132,227,0.5);
+      display:none; align-items:center; gap:6px;
+      transition:all 0.2s;
+    }
+    #navToggleBtn.visible { display:flex; }
+    #navToggleBtn:hover { transform:translateY(-2px); }
+
     /* TOGGLE SIDEBAR BTN */
     #toggleSidebar {
       position: fixed; top: 58px; left: 10px;
@@ -332,6 +379,35 @@
 
 <!-- FAB Add -->
 <button id="fab" onclick="openAddModal()" title="เพิ่มข้อมูล"><i class="fa fa-plus"></i></button>
+
+<!-- NAV TOGGLE BUTTON -->
+<button id="navToggleBtn" onclick="toggleNavPanel()">
+  <i class="fa fa-map-signs"></i> นำทาง
+</button>
+
+<!-- NAVIGATION PANEL -->
+<div id="navPanel">
+  <div id="navHeader" onclick="toggleNavPanel()">
+    <div class="nav-summary">
+      <div>
+        <div style="font-size:11px;color:#ffcdd2;text-transform:uppercase;letter-spacing:1px">นำทาง</div>
+        <span id="navTitle">กำลังคำนวณ...</span>
+      </div>
+      <div style="text-align:center">
+        <span id="navDistBadge" style="font-size:20px;font-weight:800">-</span>
+        <small style="display:block">กิโลเมตร</small>
+      </div>
+      <div style="text-align:center">
+        <span id="navTimeBadge" style="font-size:20px;font-weight:800">-</span>
+        <small style="display:block">นาที</small>
+      </div>
+    </div>
+    <button id="navCloseBtn" onclick="closeNav(event)"><i class="fa fa-times"></i></button>
+  </div>
+  <div id="navStepsWrapper">
+    <div id="navStepsList"></div>
+  </div>
+</div>
 
 <!-- TABLE PANEL -->
 <div id="tablePanel">
@@ -819,8 +895,32 @@ function showToast(msg, isError = false) {
   setTimeout(() => { t.className = isError ? 'error' : ''; }, 3000);
 }
 
-// ===== ROUTING =====
+// ===== ROUTING & NAVIGATION =====
 let routingControl = null;
+
+const TURN_ICONS = {
+  'Head':            { icon:'fa-arrow-up',         cls:'turn' },
+  'Continue':        { icon:'fa-arrow-up',         cls:'turn' },
+  'SlightLeft':      { icon:'fa-arrow-left',       cls:'turn' },
+  'SlightRight':     { icon:'fa-arrow-right',      cls:'turn' },
+  'TurnLeft':        { icon:'fa-arrow-left',       cls:'turn' },
+  'TurnRight':       { icon:'fa-arrow-right',      cls:'turn' },
+  'SharpLeft':       { icon:'fa-arrow-left',       cls:'turn' },
+  'SharpRight':      { icon:'fa-arrow-right',      cls:'turn' },
+  'Uturn':           { icon:'fa-undo',             cls:'turn' },
+  'WaypointReached': { icon:'fa-map-marker-alt',   cls:'start' },
+  'Roundabout':      { icon:'fa-circle-notch',     cls:'turn' },
+  'DestinationReached': { icon:'fa-flag-checkered', cls:'end' },
+  'default':         { icon:'fa-arrow-up',         cls:'turn' }
+};
+
+function getTurnIcon(type) {
+  return TURN_ICONS[type] || TURN_ICONS['default'];
+}
+
+function fmtDist(m) {
+  return m >= 1000 ? (m/1000).toFixed(1)+' กม.' : Math.round(m)+' ม.';
+}
 
 function updateRouteDropdowns() {
   const fromSel = document.getElementById('routeFrom');
@@ -861,33 +961,59 @@ function calcRoute() {
   const to = allData.find(r => r.id === toId);
   if (!fr || !to) return;
 
-  const toLat = layer === '2' ? to.lat2 : to.lat3;
-  const toLng = layer === '2' ? to.lng2 : to.lng3;
+  const toLat   = layer === '2' ? to.lat2 : to.lat3;
+  const toLng   = layer === '2' ? to.lng2 : to.lng3;
   const toLabel = layer === '2' ? to.elec : `มิเตอร์ ${to.meter}`;
 
   clearRoute();
+  showToast('กำลังคำนวณเส้นทาง...');
 
   routingControl = L.Routing.control({
     waypoints: [ L.latLng(fr.lat1, fr.lng1), L.latLng(toLat, toLng) ],
-    router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'driving' }),
-    lineOptions: { styles: [{ color: '#e94560', weight: 5, opacity: 0.85 }] },
-    showAlternatives: false,
-    addWaypoints: false,
-    draggableWaypoints: false,
-    fitSelectedRoutes: true,
-    show: false,
-    createMarker: () => null
+    router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'driving' }),
+    lineOptions: { styles:[{ color:'#e94560', weight:6, opacity:0.9 }], extendToWaypoints:true, missingRouteTolerance:0 },
+    showAlternatives: false, addWaypoints: false,
+    draggableWaypoints: false, fitSelectedRoutes: true,
+    show: false, createMarker: () => null
   }).addTo(map);
 
   routingControl.on('routesfound', e => {
-    const s = e.routes[0].summary;
-    const dist = (s.totalDistance / 1000).toFixed(2);
-    const mins = Math.round(s.totalTime / 60);
+    const route = e.routes[0];
+    const dist  = (route.summary.totalDistance / 1000).toFixed(2);
+    const mins  = Math.round(route.summary.totalTime / 60);
+
+    // Sidebar summary
     document.getElementById('routeFrom_info').innerHTML = `<i class="fa fa-map-marker-alt"></i> จาก: <strong>${fr.code}</strong>`;
     document.getElementById('routeTo_info').innerHTML   = `<i class="fa fa-flag-checkered"></i> ถึง: <strong>${toLabel}</strong>`;
     document.getElementById('routeDistance').innerHTML  = `<i class="fa fa-road"></i> ระยะทาง: <strong>${dist} กม.</strong>`;
-    document.getElementById('routeTime').innerHTML      = `<i class="fa fa-clock"></i> เวลาโดยประมาณ: <strong>${mins} นาที</strong>`;
+    document.getElementById('routeTime').innerHTML      = `<i class="fa fa-clock"></i> เวลา: <strong>${mins} นาที</strong>`;
     document.getElementById('routeResult').style.display = 'block';
+
+    // Navigation panel
+    document.getElementById('navTitle').textContent   = `${fr.code} → ${toLabel}`;
+    document.getElementById('navDistBadge').textContent = dist;
+    document.getElementById('navTimeBadge').textContent = mins < 1 ? '<1' : mins;
+
+    const steps = route.instructions || [];
+    const html = steps.map((step, i) => {
+      const t   = getTurnIcon(step.type);
+      const isFirst = i === 0;
+      const isLast  = i === steps.length - 1;
+      const iconCls = isFirst ? 'start' : isLast ? 'end' : t.cls;
+      const icon    = isFirst ? 'fa-map-marker-alt' : isLast ? 'fa-flag-checkered' : t.icon;
+      return `<div class="nav-step ${isFirst?'active':''}">
+        <div class="step-icon ${iconCls}"><i class="fa ${icon}"></i></div>
+        <div class="step-body">
+          <div class="step-text">${step.text}</div>
+          <div class="step-dist">${fmtDist(step.distance)}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('navStepsList').innerHTML = html;
+    document.getElementById('navToggleBtn').classList.add('visible');
+    document.getElementById('navPanel').classList.add('open');
+    setTimeout(() => map.invalidateSize(), 400);
     showToast(`เส้นทาง ${dist} กม. · ${mins} นาที`);
   });
 
@@ -899,6 +1025,20 @@ function calcRoute() {
 function clearRoute() {
   if (routingControl) { map.removeControl(routingControl); routingControl = null; }
   document.getElementById('routeResult').style.display = 'none';
+  document.getElementById('navPanel').classList.remove('open');
+  document.getElementById('navToggleBtn').classList.remove('visible');
+  document.getElementById('navStepsList').innerHTML = '';
+}
+
+function toggleNavPanel() {
+  document.getElementById('navPanel').classList.toggle('open');
+  setTimeout(() => map.invalidateSize(), 400);
+}
+
+function closeNav(e) {
+  e.stopPropagation();
+  document.getElementById('navPanel').classList.remove('open');
+  setTimeout(() => map.invalidateSize(), 400);
 }
 
 // ===== INIT =====
