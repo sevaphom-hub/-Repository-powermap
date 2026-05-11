@@ -1117,7 +1117,8 @@ function mCalcRoute() {
   clearRouting();
   document.getElementById('mDirList').innerHTML = '<div style="padding:16px;text-align:center;color:#5f6368"><i class="fa fa-spinner fa-spin"></i> กำลังคำนวณ...</div>';
   document.getElementById('mRouteCard').style.display = 'block';
-  document.getElementById('mStartNavBtn').style.display = 'none';
+  // Show start button immediately — don't wait for routesfound
+  document.getElementById('mStartNavBtn').style.display = 'flex';
 
   // Show time for all 4 modes
   [{m:'driving',p:'driving'},{m:'motorcycle',p:'driving'},{m:'cycling',p:'cycling'},{m:'foot',p:'foot'}].forEach(({m,p}) => {
