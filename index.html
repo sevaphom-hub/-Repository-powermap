@@ -223,13 +223,16 @@
 
         <!-- Transport mode tabs -->
         <div class="mode-tabs">
-          <button class="mode-tab active" id="tab_driving"  onclick="setMode('driving')" title="รถยนต์">
+          <button class="mode-tab active" id="tab_driving"    onclick="setMode('driving')"    title="รถยนต์">
             <i class="fa fa-car"></i><span class="mode-time" id="t_driving">-</span>
           </button>
-          <button class="mode-tab" id="tab_cycling" onclick="setMode('cycling')" title="จักรยาน">
+          <button class="mode-tab" id="tab_motorcycle" onclick="setMode('motorcycle')" title="มอเตอร์ไซด์">
+            <i class="fa fa-motorcycle"></i><span class="mode-time" id="t_motorcycle">-</span>
+          </button>
+          <button class="mode-tab" id="tab_cycling"   onclick="setMode('cycling')"   title="จักรยาน">
             <i class="fa fa-bicycle"></i><span class="mode-time" id="t_cycling">-</span>
           </button>
-          <button class="mode-tab" id="tab_foot"    onclick="setMode('foot')"    title="เดิน">
+          <button class="mode-tab" id="tab_foot"      onclick="setMode('foot')"      title="เดิน">
             <i class="fa fa-person-walking"></i><span class="mode-time" id="t_foot">-</span>
           </button>
         </div>
@@ -270,6 +273,10 @@
             </div>
           </div>
           <div class="rc-via" id="rcVia"></div>
+          <button id="startNavBtn" onclick="startNavigation()"
+            style="display:none;width:100%;margin-top:10px;padding:10px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;display:none;align-items:center;justify-content:center;gap:8px;">
+            <i class="fa fa-location-arrow"></i> เริ่มนำทาง
+          </button>
         </div>
       </div>
 
@@ -395,14 +402,17 @@
     <div id="sheet_nav" style="display:none;padding:12px;">
       <div style="font-size:14px;font-weight:700;color:#202124;margin-bottom:12px;"><i class="fa fa-route" style="color:#1a73e8"></i> นำทาง</div>
       <!-- Mode tabs -->
-      <div style="display:flex;gap:6px;margin-bottom:12px;">
-        <button class="mode-tab active" id="mtab_driving" onclick="setMode('driving');mCalcRoute()" style="flex:1;background:#e8f0fe;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#1a73e8;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:12px;">
+        <button id="mtab_driving"    onclick="setMode('driving');mCalcRoute()"    style="background:#e8f0fe;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#1a73e8;">
           <i class="fa fa-car" style="font-size:18px;"></i><span id="mt_driving">-</span>
         </button>
-        <button class="mode-tab" id="mtab_cycling" onclick="setMode('cycling');mCalcRoute()" style="flex:1;background:#f1f3f4;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#5f6368;">
+        <button id="mtab_motorcycle" onclick="setMode('motorcycle');mCalcRoute()" style="background:#f1f3f4;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#5f6368;">
+          <i class="fa fa-motorcycle" style="font-size:18px;"></i><span id="mt_motorcycle">-</span>
+        </button>
+        <button id="mtab_cycling"    onclick="setMode('cycling');mCalcRoute()"    style="background:#f1f3f4;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#5f6368;">
           <i class="fa fa-bicycle" style="font-size:18px;"></i><span id="mt_cycling">-</span>
         </button>
-        <button class="mode-tab" id="mtab_foot" onclick="setMode('foot');mCalcRoute()" style="flex:1;background:#f1f3f4;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:#5f6368;">
+        <button id="mtab_foot"       onclick="setMode('foot');mCalcRoute()"       style="background:#f1f3f4;border:none;border-radius:8px;padding:8px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:#5f6368;">
           <i class="fa fa-person-walking" style="font-size:18px;"></i><span id="mt_foot">-</span>
         </button>
       </div>
@@ -434,6 +444,11 @@
           <div style="text-align:right;"><div id="mRcDist" style="font-size:13px;font-weight:600;color:#202124;">—</div></div>
         </div>
         <div id="mRcVia" style="font-size:12px;color:#202124;margin-top:4px;font-weight:500;"></div>
+        <!-- START BUTTON mobile -->
+        <button id="mStartNavBtn" onclick="startNavigation()"
+          style="display:none;width:100%;margin-top:10px;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px;">
+          <i class="fa fa-location-arrow"></i> เริ่มนำทาง
+        </button>
       </div>
       <!-- Steps -->
       <div id="mDirList"></div>
@@ -687,8 +702,10 @@ function applyFilters(){
 // ══════════ NAVIGATION (Google Maps style) ══════════
 let routingCtrl=null;
 let navMode_='driving';
-const modeLabels={driving:'รถยนต์',cycling:'จักรยาน',foot:'เดิน'};
-const modeProfiles={driving:'driving',cycling:'cycling',foot:'foot'};
+let navDestCoord=null; // {lat,lng} of destination for Google Maps link
+const modeLabels={driving:'รถยนต์',motorcycle:'มอเตอร์ไซด์',cycling:'จักรยาน',foot:'เดิน'};
+const modeProfiles={driving:'driving',motorcycle:'driving',cycling:'cycling',foot:'foot'};
+const modeGmaps={driving:'driving',motorcycle:'driving',cycling:'bicycling',foot:'walking'};
 
 function openNavMode(){
   document.getElementById('navMode').classList.add('active');
@@ -716,9 +733,25 @@ function closeNavMode(){
 
 function setMode(m){
   navMode_=m;
-  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById(`tab_${m}`).classList.add('active');
-  document.getElementById('rcMode').textContent=modeLabels[m];
+  // Desktop tabs
+  ['driving','motorcycle','cycling','foot'].forEach(k=>{
+    const el=document.getElementById(`tab_${k}`);
+    if(el){
+      el.classList.toggle('active',k===m);
+      el.style.background=k===m?'#e8f0fe':'#f1f3f4';
+      el.style.color=k===m?'#1a73e8':'#5f6368';
+    }
+  });
+  // Mobile tabs
+  ['driving','motorcycle','cycling','foot'].forEach(k=>{
+    const el=document.getElementById(`mtab_${k}`);
+    if(el){
+      el.style.background=k===m?'#e8f0fe':'#f1f3f4';
+      el.style.color=k===m?'#1a73e8':'#5f6368';
+    }
+  });
+  const rcMode=document.getElementById('rcMode');
+  if(rcMode) rcMode.textContent=modeLabels[m];
   onNavChange();
 }
 
@@ -792,13 +825,19 @@ function calcNav(fromId,toId){
   document.getElementById('dirList').innerHTML=`<div style="padding:20px;text-align:center;color:#5f6368"><i class="fa fa-spinner fa-spin"></i> กำลังคำนวณ...</div>`;
   document.getElementById('routeCard').style.display='block';
 
-  // Fetch all 3 modes for time display
-  const modes=['driving','cycling','foot'];
-  modes.forEach(mode=>{
-    fetch(`https://router.project-osrm.org/route/v1/${modeProfiles[mode]}/${fr.lng1},${fr.lat1};${toLng},${toLat}?overview=false`)
+  // Save destination for Google Maps link
+  navDestCoord={lat:toLat,lng:toLng,fromLat:fr.lat1,fromLng:fr.lng1};
+
+  // Fetch time for all modes
+  [{m:'driving',p:'driving'},{m:'motorcycle',p:'driving'},{m:'cycling',p:'cycling'},{m:'foot',p:'foot'}].forEach(({m,p})=>{
+    fetch(`https://router.project-osrm.org/route/v1/${p}/${fr.lng1},${fr.lat1};${toLng},${toLat}?overview=false`)
       .then(r=>r.json()).then(data=>{
         if(data.routes&&data.routes[0]){
-          document.getElementById(`t_${mode}`).textContent=fmtTime(data.routes[0].duration);
+          const t=fmtTime(data.routes[0].duration);
+          const el1=document.getElementById(`t_${m}`);
+          const el2=document.getElementById(`mt_${m}`);
+          if(el1) el1.textContent=t;
+          if(el2) el2.textContent=t;
         }
       }).catch(()=>{});
   });
@@ -824,10 +863,22 @@ function calcNav(fromId,toId){
     const route=e.routes[0];
     const dist=(route.summary.totalDistance/1000).toFixed(2);
     const time=fmtTime(route.summary.totalTime);
-    document.getElementById('rcTime').textContent=time;
-    document.getElementById('rcDist').textContent=dist+' กม.';
-    document.getElementById('rcVia').innerHTML=`<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
-    document.getElementById(`t_${navMode_}`).textContent=time;
+    // Desktop result
+    const rcTime=document.getElementById('rcTime'); if(rcTime) rcTime.textContent=time;
+    const rcDist=document.getElementById('rcDist'); if(rcDist) rcDist.textContent=dist+' กม.';
+    const rcVia=document.getElementById('rcVia');   if(rcVia)  rcVia.innerHTML=`<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
+    // Show start button desktop
+    const sb=document.getElementById('startNavBtn');
+    if(sb){sb.style.display='flex';}
+    // Mobile result
+    const mRcTime=document.getElementById('mRcTime'); if(mRcTime) mRcTime.textContent=time;
+    const mRcDist=document.getElementById('mRcDist'); if(mRcDist) mRcDist.textContent=dist+' กม.';
+    const mRcVia=document.getElementById('mRcVia');   if(mRcVia)  mRcVia.innerHTML=`<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
+    const mCard=document.getElementById('mRouteCard'); if(mCard) mCard.style.display='block';
+    const msb=document.getElementById('mStartNavBtn'); if(msb){msb.style.display='flex';}
+    // Mode time
+    const t1=document.getElementById(`t_${navMode_}`); if(t1) t1.textContent=time;
+    const t2=document.getElementById(`mt_${navMode_}`); if(t2) t2.textContent=time;
 
     const steps=route.instructions||[];
     document.getElementById('dirList').innerHTML=steps.map((step,i)=>{
@@ -857,9 +908,23 @@ function focusStep(idx){
 
 function clearRouting(){
   if(routingCtrl){map.removeControl(routingCtrl);routingCtrl=null;}
-  document.getElementById('t_driving').textContent='-';
-  document.getElementById('t_cycling').textContent='-';
-  document.getElementById('t_foot').textContent='-';
+  ['driving','motorcycle','cycling','foot'].forEach(m=>{
+    const a=document.getElementById(`t_${m}`); if(a) a.textContent='-';
+    const b=document.getElementById(`mt_${m}`); if(b) b.textContent='-';
+  });
+  const sb=document.getElementById('startNavBtn'); if(sb) sb.style.display='none';
+  const msb=document.getElementById('mStartNavBtn'); if(msb) msb.style.display='none';
+  navDestCoord=null;
+}
+
+function startNavigation(){
+  if(!navDestCoord) return;
+  const gm=modeGmaps[navMode_]||'driving';
+  const url=`https://www.google.com/maps/dir/?api=1`+
+    `&origin=${navDestCoord.fromLat},${navDestCoord.fromLng}`+
+    `&destination=${navDestCoord.lat},${navDestCoord.lng}`+
+    `&travelmode=${gm}`;
+  window.open(url,'_blank');
 }
 
 // ══════════ CRUD ══════════
