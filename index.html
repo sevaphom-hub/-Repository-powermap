@@ -1111,16 +1111,22 @@ function mCalcRoute() {
   const toLng = layer === '2' ? to.lng2 : to.lng3;
   const toLabel = layer === '2' ? to.elec : `มิเตอร์ ${to.meter}`;
 
+  // Save destination for Google Maps
+  navDestCoord = { lat: toLat, lng: toLng, fromLat: fr.lat1, fromLng: fr.lng1 };
+
   clearRouting();
   document.getElementById('mDirList').innerHTML = '<div style="padding:16px;text-align:center;color:#5f6368"><i class="fa fa-spinner fa-spin"></i> กำลังคำนวณ...</div>';
   document.getElementById('mRouteCard').style.display = 'block';
+  document.getElementById('mStartNavBtn').style.display = 'none';
 
-  // Show time for all modes
-  ['driving','cycling','foot'].forEach(mode => {
-    fetch(`https://router.project-osrm.org/route/v1/${modeProfiles[mode]}/${fr.lng1},${fr.lat1};${toLng},${toLat}?overview=false`)
+  // Show time for all 4 modes
+  [{m:'driving',p:'driving'},{m:'motorcycle',p:'driving'},{m:'cycling',p:'cycling'},{m:'foot',p:'foot'}].forEach(({m,p}) => {
+    fetch(`https://router.project-osrm.org/route/v1/${p}/${fr.lng1},${fr.lat1};${toLng},${toLat}?overview=false`)
       .then(r => r.json()).then(d => {
         if (d.routes && d.routes[0]) {
-          document.getElementById(`mt_${mode}`).textContent = fmtTime(d.routes[0].duration);
+          const t = fmtTime(d.routes[0].duration);
+          const el = document.getElementById(`mt_${m}`); if(el) el.textContent = t;
+          const el2 = document.getElementById(`t_${m}`); if(el2) el2.textContent = t;
         }
       }).catch(() => {});
   });
@@ -1142,11 +1148,16 @@ function mCalcRoute() {
     const route = e.routes[0];
     const dist  = (route.summary.totalDistance / 1000).toFixed(2);
     const time  = fmtTime(route.summary.totalTime);
-    document.getElementById('mRcTime').textContent  = time;
-    document.getElementById('mRcDist').textContent  = dist + ' กม.';
-    document.getElementById('mRcVia').innerHTML = `<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
-    document.getElementById(`mt_${navMode_}`).textContent = time;
 
+    document.getElementById('mRcTime').textContent = time;
+    document.getElementById('mRcDist').textContent = dist + ' กม.';
+    document.getElementById('mRcVia').innerHTML = `<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
+
+    // Show start button on mobile
+    const msb = document.getElementById('mStartNavBtn');
+    if (msb) { msb.style.display = 'flex'; }
+
+    // Directions steps
     const steps = route.instructions || [];
     document.getElementById('mDirList').innerHTML = steps.map((step, i) => {
       const isFirst = i === 0, isLast = i === steps.length - 1;
@@ -1159,9 +1170,6 @@ function mCalcRoute() {
       </div>`;
     }).join('');
     showToast(`${dist} กม. · ${time}`);
-    // Switch to map tab to see route
-    mobileTab('map');
-    setTimeout(() => mobileTab('nav'), 100);
   });
 
   routingCtrl.on('routingerror', () => {
