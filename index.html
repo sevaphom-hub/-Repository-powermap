@@ -918,20 +918,17 @@ function clearRouting(){
 }
 
 function startNavigation(){
-  if(!navDestCoord) return;
-  const gm = modeGmaps[navMode_] || 'driving';
-  // Omit origin → Google Maps uses device GPS automatically (works Android & iOS)
-  const url = `https://www.google.com/maps/dir/?api=1` +
-    `&destination=${navDestCoord.lat},${navDestCoord.lng}` +
-    `&travelmode=${gm}`;
-  // Use anchor-click method — works in mobile WebView, Safari, Chrome
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  if(!navDestCoord){showToast('ยังไม่ได้เลือกปลายทาง',true);return;}
+  const lat=parseFloat(navDestCoord.lat), lng=parseFloat(navDestCoord.lng);
+  if(isNaN(lat)||isNaN(lng)||!lat||!lng){showToast('พิกัดปลายทางไม่ถูกต้อง: '+navDestCoord.lat+','+navDestCoord.lng,true);return;}
+  const gm=modeGmaps[navMode_]||'driving';
+  const dirflg={driving:'d',bicycling:'b',walking:'w'}[gm]||'d';
+  // maps.google.com/maps?daddr= opens Google Maps App on Android & iOS
+  const url=`https://maps.google.com/maps?daddr=${lat},${lng}&dirflg=${dirflg}`;
+  showToast('กำลังเปิด Google Maps…');
+  // Try window.open; if blocked, fall back to location.href
+  const w=window.open(url,'_blank','noopener,noreferrer');
+  if(!w||w.closed||typeof w.closed==='undefined'){window.location.href=url;}
 }
 
 // ══════════ CRUD ══════════
