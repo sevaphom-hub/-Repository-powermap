@@ -168,7 +168,7 @@
     .mbar-btn i{font-size:18px;}
 
     /* ─── MOBILE BOTTOM SHEET ─── */
-    #mobileSheet{display:none;position:fixed;bottom:56px;left:0;right:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.15);z-index:850;max-height:70vh;overflow:hidden;flex-direction:column;transform:translateY(100%);transition:transform .3s ease;}
+    #mobileSheet{display:none;position:fixed;bottom:56px;left:0;right:0;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.15);z-index:850;max-height:85vh;overflow:hidden;flex-direction:column;transform:translateY(100%);transition:transform .3s ease;}
     #mobileSheet.open{transform:translateY(0);}
     #sheetHandle{width:36px;height:4px;background:#dadce0;border-radius:2px;margin:10px auto 0;}
     #sheetContent{overflow-y:auto;flex:1;padding:0 0 8px;}
@@ -1456,9 +1456,17 @@ function mCalcRoute() {
     document.getElementById('mRcDist').textContent = dist + ' กม.';
     document.getElementById('mRcVia').innerHTML = `<i class="fa fa-route" style="color:#1a73e8"></i> ${fr.code} → ${toLabel}`;
 
-    // Show start button on mobile
+    // Show route card + start button on mobile
+    const mCard = document.getElementById('mRouteCard');
+    if (mCard) mCard.style.display = 'block';
     const msb = document.getElementById('mStartNavBtn');
     if (msb) { msb.style.display = 'flex'; }
+
+    // Auto-scroll to show the start button
+    setTimeout(() => {
+      const sc = document.getElementById('sheetContent');
+      if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' });
+    }, 200);
 
     // Directions steps
     const steps = route.instructions || [];
