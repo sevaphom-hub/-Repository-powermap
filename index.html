@@ -1406,7 +1406,9 @@ function mCalcRoute() {
   const toLng = layer === '2' ? (to.lng2||to.lng1) : (to.lng3||to.lng1);
   const toLabel = layer === '2' ? to.elec : `มิเตอร์ ${to.meter}`;
 
-  // Save destination for Google Maps
+  clearRouting();
+
+  // Save destination for Google Maps (AFTER clearRouting to prevent navDestCoord=null override)
   navDestCoord = { lat: toLat, lng: toLng, fromLat: fr.lat1, fromLng: fr.lng1 };
 
   // Set href on <a> buttons immediately — most reliable for mobile (no window.open needed)
@@ -1417,8 +1419,6 @@ function mCalcRoute() {
     const el=document.getElementById(id);
     if(el){el.href=_url2;el.style.display='flex';}
   });
-
-  clearRouting();
   document.getElementById('mDirList').innerHTML = '<div style="padding:16px;text-align:center;color:#5f6368"><i class="fa fa-spinner fa-spin"></i> กำลังคำนวณ...</div>';
   document.getElementById('mRouteCard').style.display = 'block';
 
