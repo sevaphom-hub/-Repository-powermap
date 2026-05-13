@@ -335,7 +335,7 @@
             </div>
           </div>
           <div class="rc-via" id="rcVia"></div>
-          <a id="startNavBtn" href="#" target="_blank" rel="noopener noreferrer"
+          <a id="startNavBtn" href="#" onclick="openNavWithGPS(event)"
             style="display:none;width:100%;margin-top:10px;padding:10px;background:#1a73e8;color:#fff;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-sizing:border-box;">
             <i class="fa fa-location-arrow"></i> เริ่มนำทาง
           </a>
@@ -507,7 +507,7 @@
         </div>
         <div id="mRcVia" style="font-size:12px;color:#202124;margin-top:4px;font-weight:500;"></div>
         <!-- START BUTTON mobile -->
-        <a id="mStartNavBtn" href="#" target="_blank" rel="noopener noreferrer"
+        <a id="mStartNavBtn" href="#" onclick="openNavWithGPS(event)"
           style="display:none;width:100%;margin-top:10px;padding:12px;background:#1a73e8;color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-sizing:border-box;">
           <i class="fa fa-location-arrow"></i> เริ่มนำทาง
         </a>
@@ -1130,19 +1130,32 @@ function clearRouting(){
   navDestCoord=null;
 }
 
-function startNavigation(){
-  // Fallback: called if somehow the <a> href is not set yet
+function startNavigation(){} // legacy stub
+
+function openNavWithGPS(e){
+  if(e) e.preventDefault();
   if(!navDestCoord){showToast('ยังไม่ได้เลือกปลายทาง',true);return;}
-  const lat=parseFloat(navDestCoord.lat), lng=parseFloat(navDestCoord.lng);
-  if(isNaN(lat)||isNaN(lng)){showToast('พิกัดปลายทางไม่ถูกต้อง',true);return;}
+  const toLat=parseFloat(navDestCoord.lat), toLng=parseFloat(navDestCoord.lng);
+  if(isNaN(toLat)||isNaN(toLng)){showToast('พิกัดปลายทางไม่ถูกต้อง',true);return;}
   const gm=modeGmaps[navMode_]||'driving';
   const dirflg={driving:'d',bicycling:'b',walking:'w'}[gm]||'d';
-  const fromLat=navDestCoord.fromLat, fromLng=navDestCoord.fromLng;
-  const url=`https://maps.google.com/maps?saddr=${fromLat},${fromLng}&daddr=${lat},${lng}&dirflg=${dirflg}`;
-  // Update href on both nav buttons
-  ['startNavBtn','mStartNavBtn'].forEach(id=>{
-    const el=document.getElementById(id);if(el) el.href=url;
-  });
+  const fbLat=navDestCoord.fromLat, fbLng=navDestCoord.fromLng;
+
+  function openMaps(fromLat,fromLng){
+    const url=`https://maps.google.com/maps?saddr=${fromLat},${fromLng}&daddr=${toLat},${toLng}&dirflg=${dirflg}`;
+    window.open(url,'_blank');
+  }
+
+  if(navigator.geolocation){
+    showToast('📍 กำลังหาตำแหน่ง GPS...');
+    navigator.geolocation.getCurrentPosition(
+      pos=>openMaps(pos.coords.latitude,pos.coords.longitude),
+      ()=>openMaps(fbLat,fbLng),
+      {timeout:6000,maximumAge:30000,enableHighAccuracy:true}
+    );
+  } else {
+    openMaps(fbLat,fbLng);
+  }
 }
 
 // ══════════ CRUD ══════════
