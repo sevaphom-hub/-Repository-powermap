@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1a1a2e;color:#eee;}
@@ -190,9 +191,35 @@
       /* Toast higher on mobile */
       #toast{bottom:130px;}
     }
+
+    /* LOGIN OVERLAY */
+    #loginOverlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;}
+    #loginOverlay.hidden{display:none;}
+    #loginCard{background:#fff;border-radius:12px;padding:40px;max-width:400px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3);}
+    #loginCard h1{font-size:24px;color:#202124;margin-bottom:10px;}
+    #loginCard p{color:#5f6368;margin-bottom:30px;font-size:14px;}
+    #googleBtn{margin:20px 0;}
+    #googleBtn button{width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;}
+    #googleBtn button:hover{background:#1557b0;}
+    #userInfo{color:#5f6368;font-size:13px;margin-top:15px;}
+    #logoutBtn{background:#d93025;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;margin-top:15px;}
+    #logoutBtn:hover{background:#b71c1c;}
   </style>
 </head>
 <body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div id="loginCard">
+    <h1>🗺️ PowerMap</h1>
+    <p>เข้าสู่ระบบด้วย Google Account<br/><span style="font-size:12px;color:#d93025;">@planbmedia.co.th</span></p>
+    <div id="googleBtn"></div>
+    <div id="userInfo" style="display:none;">
+      <p>เข้าสู่ระบบแล้ว: <strong id="userEmail"></strong></p>
+      <button id="logoutBtn" onclick="logoutUser()">ออกจากระบบ</button>
+    </div>
+  </div>
+</div>
 
 <div id="loading"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>
 <div id="toast"></div>
@@ -538,6 +565,88 @@
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
+// ════════════ GOOGLE SIGN-IN ════════════
+const GOOGLE_CLIENT_ID = '601968045193-ik9b4khnae3fi2gd7cp8dtn73rpduo0g.apps.googleusercontent.com';
+const ALLOWED_DOMAIN = 'planbmedia.co.th';
+let currentUser = null;
+
+function initGoogleSignIn() {
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleSignInResponse,
+    auto_select: false
+  });
+
+  // Render sign-in button
+  google.accounts.id.renderButton(
+    document.getElementById('googleBtn'),
+    { theme: 'filled_blue', size: 'large', text: 'center' }
+  );
+
+  // Check if user already logged in
+  checkExistingUser();
+}
+
+function handleSignInResponse(response) {
+  // Decode JWT token
+  const base64Url = response.credential.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+
+  const userData = JSON.parse(jsonPayload);
+  const email = userData.email;
+  const domain = email.split('@')[1];
+
+  // Verify email domain
+  if (domain !== ALLOWED_DOMAIN) {
+    alert(`❌ ต้องใช้ ${ALLOWED_DOMAIN} email เท่านั้น\n\nอีเมลของคุณ: ${email}`);
+    return;
+  }
+
+  // Success - store user info
+  currentUser = { email, name: userData.name, picture: userData.picture };
+  localStorage.setItem('pmUser', JSON.stringify(currentUser));
+
+  // Show success message
+  showLoginSuccess();
+}
+
+function checkExistingUser() {
+  const saved = localStorage.getItem('pmUser');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      showLoginSuccess();
+    } catch (e) {
+      // Invalid data, clear it
+      localStorage.removeItem('pmUser');
+    }
+  }
+}
+
+function showLoginSuccess() {
+  // Hide login overlay, show app
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('userInfo').style.display = 'block';
+  document.getElementById('userEmail').textContent = currentUser.email;
+
+  // Start the app
+  if (typeof initApp === 'function') initApp();
+}
+
+function logoutUser() {
+  if (confirm('ต้องการออกจากระบบ?')) {
+    currentUser = null;
+    localStorage.removeItem('pmUser');
+    google.accounts.id.disableAutoSelect();
+
+    // Reload page to show login screen
+    location.reload();
+  }
+}
+
 // ══════════ DATA ══════════
 const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-7-byqfBNqSu1gsp2Far56CRAU3k8HVAi05QvoGASu0/export?format=csv&gid=1029807904';
 const DATA_VER  = '2025-05-11-v2'; // bump to force cache refresh
@@ -1256,7 +1365,7 @@ function updateMobileCounts() {
 }
 
 // ══════════ INIT ══════════
-window.addEventListener('load',()=>{
+function initApp(){
   if(isStale()){
     // version changed → clear old cache and fetch fresh
     localStorage.removeItem('pmdata');
@@ -1267,7 +1376,7 @@ window.addEventListener('load',()=>{
   const saved=localStorage.getItem('pmdata');
   if(saved){try{allData=JSON.parse(saved);renderAll();hideLoading();showToast(`โหลดข้อมูล ${allData.length} รายการ`);}catch(e){fetchFromSheet();}}
   else fetchFromSheet();
-});
+}
 </script>
 </body>
 </html>
