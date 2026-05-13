@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#1a1a2e;color:#eee;}
@@ -212,12 +211,48 @@
 <div id="loginOverlay">
   <div id="loginCard">
     <h1>🗺️ PowerMap</h1>
-    <p>เข้าสู่ระบบด้วย Google Account<br/><span style="font-size:12px;color:#d93025;">@planbmedia.co.th</span></p>
-    <div id="googleBtn"></div>
-    <div id="userInfo" style="display:none;">
-      <p>เข้าสู่ระบบแล้ว: <strong id="userEmail"></strong></p>
-      <button id="logoutBtn" onclick="logoutUser()">ออกจากระบบ</button>
+    <p style="margin-bottom:20px;color:#5f6368;">ป้อน Password + ชื่อผู้ใช้</p>
+    <div style="display:flex;gap:10px;margin-bottom:15px;">
+      <input id="loginPass" type="password" placeholder="Password" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;"/>
+      <button onclick="login()" style="padding:10px 20px;background:#1a73e8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">เข้า</button>
     </div>
+    <input id="userName" type="text" placeholder="ชื่อของคุณ (optional)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:15px;"/>
+    <div id="userInfo" style="display:none;text-align:center;">
+      <p style="color:#1a73e8;font-weight:600;margin-bottom:10px;">✅ เข้าสู่ระบบแล้ว</p>
+      <p style="font-size:13px;color:#5f6368;margin-bottom:10px;">ผู้ใช้: <strong id="displayName"></strong></p>
+      <button id="logoutBtn" onclick="logoutUser()" style="padding:8px 16px;background:#d93025;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">ออกจากระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminOverlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:none;z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;padding:20px;max-width:600px;max-height:80vh;overflow-y:auto;width:90%;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2>📊 Admin Dashboard</h2>
+      <button onclick="toggleAdminPanel()" style="background:none;border:none;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    <div style="margin-bottom:20px;padding:15px;background:#f0f0f0;border-radius:8px;">
+      <p style="margin:5px 0;"><strong>📈 สรุป:</strong></p>
+      <p style="margin:5px 0;">✅ ผู้เข้าใช้งานทั้งหมด: <span id="totalAccess">0</span> ครั้ง</p>
+      <p style="margin:5px 0;">👥 ผู้ใช้ที่แตกต่าง: <span id="uniqueUsers">0</span> คน</p>
+    </div>
+    <div style="margin-bottom:20px;">
+      <h3 style="margin-bottom:10px;">📋 บันทึกการเข้าใช้งาน:</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#e8f0fe;">
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">ผู้ใช้</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">เวลา</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">Browser</th>
+          </tr>
+        </thead>
+        <tbody id="accessTable">
+          <tr><td colspan="3" style="padding:10px;text-align:center;color:#999;">ไม่มีข้อมูล</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <button onclick="exportLogsCSV()" style="padding:10px 20px;background:#4CAF50;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;width:100%;">📥 ดาวน์โหลด CSV</button>
   </div>
 </div>
 
@@ -226,7 +261,7 @@
 
 <!-- HEADER -->
 <div id="header">
-  <h1><span>MAP</span>Street-Static PowerMap AI</h1>
+  <h1 onclick="toggleAdminPanel()" style="cursor:pointer;" title="Click to admin panel"><span>MAP</span>Street-Static PowerMap AI</h1>
   <div class="hbtns">
     <button class="btn btn-success" onclick="openAddModal()"><i class="fa fa-plus"></i>เพิ่ม</button>
     <button class="btn btn-info"    onclick="exportCSV()"><i class="fa fa-download"></i>ดาวน์โหลด</button>
@@ -565,52 +600,74 @@
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
-// ════════════ GOOGLE SIGN-IN ════════════
-const GOOGLE_CLIENT_ID = '601968045193-ik9b4khnae3fi2gd7cp8dtn73rpduo0g.apps.googleusercontent.com';
-const ALLOWED_DOMAIN = 'planbmedia.co.th';
+// ════════════ PASSWORD LOGIN + USAGE LOGGING ════════════
+const CORRECT_PASSWORD = 'planbmedia@2025'; // แก้ password ที่นี่
 let currentUser = null;
+let sessionStart = null;
 
-function initGoogleSignIn() {
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleSignInResponse,
-    auto_select: false
-  });
+function login() {
+  const pass = document.getElementById('loginPass').value;
+  const name = document.getElementById('userName').value || 'Guest';
 
-  // Render sign-in button
-  google.accounts.id.renderButton(
-    document.getElementById('googleBtn'),
-    { theme: 'filled_blue', size: 'large', text: 'center' }
-  );
-
-  // Check if user already logged in
-  checkExistingUser();
-}
-
-function handleSignInResponse(response) {
-  // Decode JWT token
-  const base64Url = response.credential.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-  }).join(''));
-
-  const userData = JSON.parse(jsonPayload);
-  const email = userData.email;
-  const domain = email.split('@')[1];
-
-  // Verify email domain
-  if (domain !== ALLOWED_DOMAIN) {
-    alert(`❌ ต้องใช้ ${ALLOWED_DOMAIN} email เท่านั้น\n\nอีเมลของคุณ: ${email}`);
+  if (pass !== CORRECT_PASSWORD) {
+    alert('❌ Password ผิด');
     return;
   }
 
-  // Success - store user info
-  currentUser = { email, name: userData.name, picture: userData.picture };
+  // Success
+  currentUser = { name, loginTime: new Date().toISOString() };
+  sessionStart = Date.now();
   localStorage.setItem('pmUser', JSON.stringify(currentUser));
 
-  // Show success message
-  showLoginSuccess();
+  // Log access to sheet
+  logAccessToSheet(name);
+
+  // Show app
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('userInfo').style.display = 'block';
+  document.getElementById('displayName').textContent = name;
+  document.getElementById('loginPass').value = '';
+
+  if (typeof initApp === 'function') initApp();
+}
+
+function logAccessToSheet(userName) {
+  const now = new Date();
+  const timestamp = now.toLocaleString('th-TH');
+  const browser = getBrowserInfo();
+
+  // Log to localStorage (backup)
+  const logs = JSON.parse(localStorage.getItem('pmLogs') || '[]');
+  logs.push({
+    user: userName,
+    timestamp,
+    browser,
+    sessionStart: new Date().toISOString()
+  });
+  localStorage.setItem('pmLogs', JSON.stringify(logs.slice(-100))); // Keep last 100
+}
+
+function getBrowserInfo() {
+  const ua = navigator.userAgent;
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Safari')) return 'Safari';
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Edge')) return 'Edge';
+  return 'Other';
+}
+
+function logoutUser() {
+  if (confirm('ต้องการออกจากระบบ?')) {
+    // Log session end
+    if (currentUser && sessionStart) {
+      const duration = Math.round((Date.now() - sessionStart) / 1000 / 60); // minutes
+      console.log(`${currentUser.name} ใช้งาน ${duration} นาที`);
+    }
+
+    currentUser = null;
+    localStorage.removeItem('pmUser');
+    location.reload();
+  }
 }
 
 function checkExistingUser() {
@@ -618,33 +675,70 @@ function checkExistingUser() {
   if (saved) {
     try {
       currentUser = JSON.parse(saved);
-      showLoginSuccess();
+      sessionStart = Date.now();
+      document.getElementById('loginOverlay').classList.add('hidden');
+      document.getElementById('userInfo').style.display = 'block';
+      document.getElementById('displayName').textContent = currentUser.name;
+      if (typeof initApp === 'function') initApp();
     } catch (e) {
-      // Invalid data, clear it
       localStorage.removeItem('pmUser');
     }
   }
 }
 
-function showLoginSuccess() {
-  // Hide login overlay, show app
-  document.getElementById('loginOverlay').classList.add('hidden');
-  document.getElementById('userInfo').style.display = 'block';
-  document.getElementById('userEmail').textContent = currentUser.email;
+window.addEventListener('load', checkExistingUser);
 
-  // Start the app
-  if (typeof initApp === 'function') initApp();
+function toggleAdminPanel() {
+  const overlay = document.getElementById('adminOverlay');
+  if (overlay.style.display === 'none') {
+    showAdminStats();
+    overlay.style.display = 'flex';
+  } else {
+    overlay.style.display = 'none';
+  }
 }
 
-function logoutUser() {
-  if (confirm('ต้องการออกจากระบบ?')) {
-    currentUser = null;
-    localStorage.removeItem('pmUser');
-    google.accounts.id.disableAutoSelect();
+function showAdminStats() {
+  const logs = JSON.parse(localStorage.getItem('pmLogs') || '[]');
 
-    // Reload page to show login screen
-    location.reload();
+  // Stats
+  document.getElementById('totalAccess').textContent = logs.length;
+  const uniqueUsers = new Set(logs.map(l => l.user)).size;
+  document.getElementById('uniqueUsers').textContent = uniqueUsers;
+
+  // Table
+  const tbody = document.getElementById('accessTable');
+  if (logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:10px;text-align:center;color:#999;">ไม่มีข้อมูล</td></tr>';
+    return;
   }
+
+  tbody.innerHTML = logs.map(log => `
+    <tr>
+      <td style="border:1px solid #ddd;padding:8px;">${log.user}</td>
+      <td style="border:1px solid #ddd;padding:8px;font-size:11px;">${log.timestamp}</td>
+      <td style="border:1px solid #ddd;padding:8px;font-size:11px;">${log.browser}</td>
+    </tr>
+  `).join('');
+}
+
+function exportLogsCSV() {
+  const logs = JSON.parse(localStorage.getItem('pmLogs') || '[]');
+  if (logs.length === 0) {
+    alert('ไม่มีข้อมูลให้ export');
+    return;
+  }
+
+  let csv = 'ผู้ใช้,เวลา,Browser\n';
+  logs.forEach(log => {
+    csv += `"${log.user}","${log.timestamp}","${log.browser}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `PowerMap-Logs-${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
 }
 
 // ══════════ DATA ══════════
