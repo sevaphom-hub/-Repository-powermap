@@ -54,6 +54,9 @@
     .nm-field select{flex:1;border:none;background:transparent;font-size:13px;color:#202124;outline:none;cursor:pointer;}
     .nm-swap{background:none;border:1px solid #dadce0;border-radius:50%;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#5f6368;margin:0 auto 10px;transition:all .2s;}
     .nm-swap:hover{background:#f1f3f4;}
+    .nav-search{width:100%;padding:6px 10px 6px 28px;border:1px solid #dadce0;border-radius:6px;font-size:12px;color:#202124;outline:none;margin-bottom:4px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 8px center;}
+    .nav-search:focus{border-color:#1a73e8;}
+    .nav-search::placeholder{color:#9aa0a6;}
 
     /* Route result card */
     #routeCard{display:none;margin-top:8px;background:#e8f0fe;border-radius:10px;padding:10px 12px;border-left:4px solid #1a73e8;}
@@ -300,6 +303,7 @@
         </div>
 
         <!-- From -->
+        <input id="navFromSearch" class="nav-search" type="text" placeholder="ค้นหาต้นทาง (Code / ตำแหน่ง)..." oninput="filterNavFrom(this.value)" autocomplete="off"/>
         <div class="nm-field">
           <div class="dot dot-from"></div>
           <select id="navFrom" onchange="onNavChange()">
@@ -318,6 +322,7 @@
             <option value="3">เลเยอร์ 3 — เลขมิเตอร์</option>
           </select>
         </div>
+        <input id="navToSearch" class="nav-search" type="text" placeholder="ค้นหาปลายทาง (เลขมิเตอร์ / Code)..." oninput="filterNavTo(this.value)" autocomplete="off"/>
         <div class="nm-field">
           <div class="dot dot-to"></div>
           <select id="navTo" onchange="onNavChange()">
@@ -479,6 +484,7 @@
         </button>
       </div>
       <!-- From -->
+      <input id="mNavFromSearch" class="nav-search" type="text" placeholder="ค้นหาต้นทาง (Code / ตำแหน่ง)..." oninput="filterMNavFrom(this.value)" autocomplete="off" style="margin-bottom:4px;"/>
       <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:6px;background:#f8f9fa;">
         <div style="width:10px;height:10px;border-radius:50%;border:2px solid #5f6368;flex-shrink:0;"></div>
         <select id="mNavFrom" onchange="mCalcRoute()" style="flex:1;border:none;background:transparent;font-size:13px;color:#202124;outline:none;">
@@ -493,6 +499,7 @@
           <option value="3">เลเยอร์ 3 — เลขมิเตอร์</option>
         </select>
       </div>
+      <input id="mNavToSearch" class="nav-search" type="text" placeholder="ค้นหาปลายทาง (เลขมิเตอร์ / Code)..." oninput="filterMNavTo(this.value)" autocomplete="off" style="margin-bottom:4px;"/>
       <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:10px;background:#f8f9fa;">
         <div style="width:10px;height:10px;border-radius:50%;background:#e94560;flex-shrink:0;"></div>
         <select id="mNavTo" onchange="mCalcRoute()" style="flex:1;border:none;background:transparent;font-size:13px;color:#202124;outline:none;">
@@ -969,6 +976,7 @@ function updateNavDropdowns(){
 }
 
 function updateNavToList(){
+  const s=document.getElementById('navToSearch'); if(s) s.value='';
   const layer=document.getElementById('navToLayer').value;
   const toSel=document.getElementById('navTo');
   const sv=toSel.value;
@@ -983,6 +991,33 @@ function updateNavToList(){
         `<option value="${r.id}">${r.meter||'-'} (${r.code})${!r.lat3?' [ป้าย]':''}</option>`).join('');
   }
   if(sv) toSel.value=sv;
+}
+
+function filterNavFrom(q){
+  const sel=document.getElementById('navFrom');
+  const sv=sel.value;
+  const qt=q.toLowerCase().trim();
+  sel.innerHTML='<option value="">จุดเริ่มต้น (เลเยอร์ 1 — ป้าย)</option>'+
+    allData.filter(r=>r.lat1&&r.lng1&&(!qt||r.code.toLowerCase().includes(qt)||r.location.toLowerCase().includes(qt)||(r.meter||'').toLowerCase().includes(qt)))
+    .map(r=>`<option value="${r.id}">${r.code} · ${r.location.substring(0,25)}</option>`).join('');
+  if(sv) sel.value=sv;
+}
+
+function filterNavTo(q){
+  const layer=document.getElementById('navToLayer').value;
+  const sel=document.getElementById('navTo');
+  const sv=sel.value;
+  const qt=q.toLowerCase().trim();
+  if(layer==='2'){
+    sel.innerHTML='<option value="">เลือกปลายทาง</option>'+
+      allData.filter(r=>r.lat2&&r.lng2&&(!qt||r.elec.toLowerCase().includes(qt)||r.code.toLowerCase().includes(qt)))
+      .map(r=>`<option value="${r.id}">${r.elec} (${r.code})</option>`).join('');
+  }else{
+    sel.innerHTML='<option value="">เลือกปลายทาง</option>'+
+      allData.filter(r=>!qt||(r.meter||'').toLowerCase().includes(qt)||r.code.toLowerCase().includes(qt))
+      .map(r=>`<option value="${r.id}">${r.meter||'-'} (${r.code})${!r.lat3?' [ป้าย]':''}</option>`).join('');
+  }
+  if(sv) sel.value=sv;
 }
 
 function swapEndpoints(){
@@ -1315,6 +1350,7 @@ function updateMNavDropdowns() {
 }
 
 function updateMNavToList() {
+  const s=document.getElementById('mNavToSearch'); if(s) s.value='';
   const layer = document.getElementById('mNavToLayer').value;
   const toSel = document.getElementById('mNavTo');
   const sv = toSel.value;
@@ -1329,6 +1365,33 @@ function updateMNavToList() {
         `<option value="${r.id}">${r.meter||'-'} (${r.code})${!r.lat3?' [ป้าย]':''}</option>`).join('');
   }
   if (sv) toSel.value = sv;
+}
+
+function filterMNavFrom(q){
+  const sel=document.getElementById('mNavFrom');
+  const sv=sel.value;
+  const qt=q.toLowerCase().trim();
+  sel.innerHTML='<option value="">จุดเริ่มต้น (เลเยอร์ 1)</option>'+
+    allData.filter(r=>r.lat1&&r.lng1&&(!qt||r.code.toLowerCase().includes(qt)||r.location.toLowerCase().includes(qt)||(r.meter||'').toLowerCase().includes(qt)))
+    .map(r=>`<option value="${r.id}">${r.code} · ${r.location.substring(0,22)}</option>`).join('');
+  if(sv) sel.value=sv;
+}
+
+function filterMNavTo(q){
+  const layer=document.getElementById('mNavToLayer').value;
+  const sel=document.getElementById('mNavTo');
+  const sv=sel.value;
+  const qt=q.toLowerCase().trim();
+  if(layer==='2'){
+    sel.innerHTML='<option value="">เลือกปลายทาง</option>'+
+      allData.filter(r=>r.lat2&&r.lng2&&(!qt||r.elec.toLowerCase().includes(qt)||r.code.toLowerCase().includes(qt)))
+      .map(r=>`<option value="${r.id}">${r.elec} (${r.code})</option>`).join('');
+  }else{
+    sel.innerHTML='<option value="">เลือกปลายทาง</option>'+
+      allData.filter(r=>!qt||(r.meter||'').toLowerCase().includes(qt)||r.code.toLowerCase().includes(qt))
+      .map(r=>`<option value="${r.id}">${r.meter||'-'} (${r.code})${!r.lat3?' [ป้าย]':''}</option>`).join('');
+  }
+  if(sv) sel.value=sv;
 }
 
 function mCalcRoute() {
