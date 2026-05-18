@@ -749,8 +749,8 @@ function exportLogsCSV() {
 }
 
 // ══════════ DATA ══════════
-const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1-7-byqfBNqSu1gsp2Far56CRAU3k8HVAi05QvoGASu0/export?format=csv&gid=1029807904';
-const DATA_VER  = '2025-05-11-v2'; // bump to force cache refresh
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1r9wGZr0h_72BzBGjyhbpW7kS8aIiTPDeMvZ7laHB0nY/export?format=csv&gid=147538310';
+const DATA_VER  = '2025-05-18-v1'; // bump to force cache refresh
 let allData = [];
 let editIdx = null;
 const layerVis = {1:true,2:true,3:true};
@@ -810,12 +810,12 @@ function embedded(){
   return[
     {id:1,no:'137',contractId:'P 1073/2',code:'DP174',location:'ก่อนทางขึ้นทางด่วนรัชดา-ดินแดง (อโศก 3)',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.752215,lng1:100.564031,elec:'พ่วงศาลา DS248',lat2:13.7514421,lng2:100.5638882,meter:'96924147',lat3:13.7517162,lng3:100.5639493},
     {id:2,no:'257',contractId:'P 1138/2',code:'DP178',location:'ตรงข้าม Dermaster มุ่งหน้าแยกพระราม 9 (Outbound)',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7513054,lng1:100.5638301,elec:'พ่วงศาลา DS248',lat2:13.7514421,lng2:100.5638882,meter:'96924147',lat3:13.7517162,lng3:100.5639493},
-    {id:3,no:'312',contractId:'P 1171/1',code:'DP181',location:'ทางลง ด่านอโศก ถ.อโศก-ดินแดง มุ่งหน้ารัชดา',road:'อโศก-ดินแดง',district:'ห้วยขวาง',lat1:13.7534859,lng1:100.5643248,elec:'พ่วงศาลา DS249',lat2:13.7530746,lng2:100.56425,meter:'96939689',lat3:13.7531654,lng3:100.5642706},
+    {id:3,no:'312',contractId:'P 1171/1',code:'DP181',location:'ทางลง ด่านอโศก ถ.อโศก-ดินแดง มุ่งหน้ารัชดา ก่อนถึงคอนโด Chewathai Residence Asoke',road:'อโศก-ดินแดง',district:'ห้วยขวาง',lat1:13.7534859,lng1:100.5643248,elec:'พ่วงศาลา DS249',lat2:13.7530746,lng2:100.56425,meter:'96939689',lat3:13.7531654,lng3:100.5642706},
     {id:4,no:'485',contractId:'P 1284/1',code:'DP1088',location:'ใต้ทางด่วน อโศก 3 มุ่งหน้า แยกพระราม 9 (Outbound)',road:'อโศก-ดินแดง',district:'ห้วยขวาง',lat1:13.7529829,lng1:100.5642296,elec:'พ่วงศาลา DS249',lat2:13.7530746,lng2:100.56425,meter:'96939689',lat3:13.7531654,lng3:100.5642706},
-    {id:5,no:'562',contractId:'P 1336/2',code:'DP052',location:'ปากซอยบุญอยู่ หน้าสำนักงานขาย THE TREE DINDAENG',road:'ดินแดง',district:'พญาไท',lat1:13.7636126,lng1:100.5456418,elec:'ขอมิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895435',lat3:13.7636758,lng3:100.5458416},
-    {id:6,no:'1003',contractId:'P 1604/2',code:'DP053',location:'หน้าอาคารประกันภัยไทยวิวัฒน์ (ซ.ร่วมมิตร)',road:'ดินแดง',district:'พญาไท',lat1:13.7640239,lng1:100.5470427,elec:'ขอมิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895440',lat3:13.7640508,lng3:100.5471781},
-    {id:7,no:'1026',contractId:'P 1617/1',code:'DP1095',location:'ตรงข้าม Mattress City มุ่งหน้า แยกพระราม 9',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7518979,lng1:100.5639898,elec:'พ่วงCokies DP174',lat2:13.752215,lng2:100.564031,meter:'96924147',lat3:13.7517162,lng3:100.5639493},
-    {id:8,no:'1107',contractId:'P 1659/2',code:'DP1097',location:'ตรงข้าม ร.พ.ผิวหนัง อโศก',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7509875,lng1:100.563788,elec:'พ่วงCokies DP178',lat2:13.7509875,lng2:100.563788,meter:'96937929',lat3:13.7517162,lng3:100.5639493}
+    {id:5,no:'562',contractId:'P 1336/2',code:'DP052',location:'ปากซอยบุญอยู่ หน้าสำนักงานขาย THE TREE DINDAENG-RATCHAPRAROP (Pruksa)',road:'ดินแดง',district:'พญาไท',lat1:13.7636126,lng1:100.5456418,elec:'มิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895435',lat3:13.7636758,lng3:100.5458416},
+    {id:6,no:'1003',contractId:'P 1604/2',code:'DP053',location:'หน้าอาคารประกันภัยไทยวิวัฒน์ (ซ.ร่วมมิตร)',road:'ดินแดง',district:'พญาไท',lat1:13.7640239,lng1:100.5470427,elec:'มิเตอร์ใหม่',lat2:null,lng2:null,meter:'96895440',lat3:13.7640508,lng3:100.5471781},
+    {id:7,no:'1026',contractId:'P 1617/1',code:'DP1095',location:'ตรงข้าม Mattress City มุ่งหน้า แยกพระราม 9 (Outbound)',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7518979,lng1:100.5639898,elec:'พ่วงCokies DP174',lat2:13.752215,lng2:100.564031,meter:'96924147',lat3:13.7517162,lng3:100.5639493},
+    {id:8,no:'1107',contractId:'P 1659/2',code:'DP1097',location:'ตรงข้าม ร.พ.ผิวหนัง อโศก',road:'อโศก-ดินแดง',district:'ราชเทวี',lat1:13.7509875,lng1:100.563788,elec:'พ่วงCokies DP178',lat2:13.7513054,lng2:100.5638301,meter:'96924147',lat3:13.7517162,lng3:100.5639493}
   ];
 }
 
